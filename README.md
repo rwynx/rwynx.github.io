@@ -1,8 +1,5 @@
-## Rwynx Githubio v4 customized.
+# Rwynx Githubio v4 customized -bootstrapmade.
 
-https://rwynx.github.io
+## https://rwynx.github.io
 
-**Theme Source**
-* Template Name: Personal - v2.1.0
-* Template URL: https://bootstrapmade.com/personal-free-resume-bootstrap-template/
-* Author: BootstrapMade.com
+ **[also source can be found here.](https://bootstrapmade.com/personal-free-resume-bootstrap-template/)**
