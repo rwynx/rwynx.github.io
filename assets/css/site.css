@@ -16,6 +16,13 @@ html,body{
   overflow-x:hidden;
 }
 
+*, *::before, *::after {
+  cursor: none;
+}
+a {
+  cursor: pointer !important;
+}
+
 /* ---- background video (assets/img/background/binary_rain.mp4 — filename unchanged, content is now the nebula) ---- */
 video.bg-video{
   position:fixed; inset:0; width:100%; height:100%;
