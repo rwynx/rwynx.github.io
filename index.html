@@ -93,6 +93,15 @@
     </ul>
   </nav>
 
+  <section id="recent" class="recent">
+    <h2 class="section-title">recent <span style="opacity:.5; text-transform:none; letter-spacing:0;">— recent stuff.</span></h2>
+    <ul>
+  <li><a href="https://thunderstore.io/c/northstar/p/Rwyn/Night_City"><b>Night City (Final)</b> on Thunderstore.</a></li>
+  <li><a href="https://www.nexusmods.com/titanfall2/mods/34"><b>Night City (Final)</b> on Nexus Mods.</a></li>
+  <li><a href="https://modworkshop.net/mod/54379"><b>Night City (Final)</b> on Modworkshop.</a></li>
+    </ul>
+  </section>
+  
   <section id="updates" class="updates">
     <h2 class="section-title">updates <span style="opacity:.5; text-transform:none; letter-spacing:0;">— last updated 8/11/24</span></h2>
     <ul>
@@ -114,7 +123,7 @@
 
 <script src="assets/js/site.js"></script>
 <script>
-// ---------- typing animation — same phrases/speed as the current typed.js setup ----------
+// ---------- typing animation - probably stil works after migration - if not test it again ----------
 const typedEl = document.getElementById('typed');
 const phrases = [
   'a proud owner of an original Blade Runner copy 🐐',
@@ -138,15 +147,14 @@ function typeTick(){
 typeTick();
 
 // ---------- permanent Night City slideshow in the right panel ----------
-// Drop screenshots into assets/img/mods/Rwyn_NightCity/ named 1.jpg, 2.jpg, 3.jpg... (edit the array below if you use different names/extensions).
-// Any slot that isn't found yet falls back to a placeholder gradient — nothing breaks, just swap files in later.
+// don't change dir ::: assets/img/mods/Rwyn_NightCity/
 const nightCityImgs = [
   'assets/img/mods/Rwyn_NightCity/1.jpg',
   'assets/img/mods/Rwyn_NightCity/2.jpg',
   'assets/img/mods/Rwyn_NightCity/3.jpg',
   'assets/img/mods/Rwyn_NightCity/4.jpg'
 ];
-const SLIDE_SECONDS = 2; // how long each image stays before crossfading to the next
+const SLIDE_SECONDS = 2; // image fade in seocnds :: keep it 2 for now
 
 (async function initSlideshow(){
   const panel = document.getElementById('previewPanel');
