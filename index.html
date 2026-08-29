@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link href="assets/css/site.css" rel="stylesheet">
 <style>
-  main{position:relative; z-index:2; max-width:560px; margin:0 0 0 22vw; padding:7vh 0 12vh 0;}
+  main{position:relative; z-index:2; max-width:560px; margin:0 0 0 17vw; padding:7vh 0 12vh 0;}
   @media(max-width:900px){ main{max-width:100%; margin:0; padding:6vh 6vw 10vh;} }
 
   .brand{margin-bottom:8px;}
@@ -141,10 +141,11 @@
 // ---------- typing animation - hopefully still works ----------
 const typedEl = document.getElementById('typed');
 const phrases = [
-  'a proud owner of an original Blade Runner copy 🐐',
-  'a Star Wars enjoyer since 1998 ☄️',
+  'a sci-fi enjoyer since 1998 ☄️',
   'making maps for GoldSrc, Source and Source 2 since 2012 🔨',
-  'modding Cyberpunk 2077, Fallout 4, Titanfall 2 and Battlefront 2 🔨'
+  'modding Cyberpunk 2077, Fallout 4, Titanfall 2 and Battlefront 2 🔨',
+  'a proud owner of an original Blade Runner copy 🐐',
+
 ];
 let pIdx=0, cIdx=0, deleting=false;
 function typeTick(){
@@ -152,11 +153,11 @@ function typeTick(){
   if(!deleting){
     cIdx++; typedEl.textContent = current.slice(0,cIdx);
     if(cIdx===current.length){ deleting=true; setTimeout(typeTick,1500); return; }
-    setTimeout(typeTick,90);
+    setTimeout(typeTick,30);
   } else {
     cIdx--; typedEl.textContent = current.slice(0,cIdx);
     if(cIdx===0){ deleting=false; pIdx=(pIdx+1)%phrases.length; setTimeout(typeTick,400); return; }
-    setTimeout(typeTick,90);
+    setTimeout(typeTick,30);
   }
 }
 typeTick();
