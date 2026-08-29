@@ -1,4 +1,4 @@
-// ---------- reactive particle field (overlays the video, doesn't replace it) ----------
+// ---------- reactive particle field (overlays the video, change if it looks dumb or whatever) ----------
 (function initParticleField(){
   const canvas = document.getElementById('field');
   if(!canvas) return;
@@ -58,3 +58,18 @@ function preloadImage(src){
     img.src = src;
   });
 }
+
+// ---------- shared Night City img list, no to self :: keep them here ----------
+const NIGHT_CITY_IMAGES = [
+  'assets/img/mods/Rwyn_NightCity/1.png',
+  'assets/img/mods/Rwyn_NightCity/2.png',
+  'assets/img/mods/Rwyn_NightCity/3.png',
+  'assets/img/mods/Rwyn_NightCity/4.png',
+  'assets/img/mods/Rwyn_NightCity/5.png',
+  'assets/img/mods/Rwyn_NightCity/6.png',
+  'assets/img/mods/Rwyn_NightCity/7.png',
+  'assets/img/mods/Rwyn_NightCity/8.png',
+  'assets/img/mods/Rwyn_NightCity/9.png',
+  'assets/img/mods/Rwyn_NightCity/10.png',
+  'assets/img/mods/Rwyn_NightCity/11.png'
+];
