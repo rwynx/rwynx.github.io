@@ -20,13 +20,15 @@
     border-left:2px solid var(--card-border); padding-left:14px;
   }
   .tagline span{display:block;}
-
-  .typing-wrap{
-    font-family:'JetBrains Mono',monospace;
-    font-size:16px; color:var(--text-dim);
-    margin-bottom:38px;
-    display:flex; align-items:center; flex-wrap:wrap;
-  }
+  
+.typing-wrap{
+  font-family:'JetBrains Mono',monospace;
+  font-size:16px;
+  color:var(--text-dim);
+  margin-bottom:38px;
+  display:flex; align-items:center; flex-wrap:nowrap; white-space:nowrap; width:max-content;
+}
+  
   .typing-wrap .lead{color:var(--text-dim); margin-right:8px;}
   .typing-wrap .typed{color:var(--blue);}
   .typing-wrap .cursor{
