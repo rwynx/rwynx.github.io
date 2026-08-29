@@ -38,13 +38,28 @@
   nav.main-nav{margin-bottom:52px;}
   section{margin-bottom:60px;}
 
-  .updates ul, .contact ul{list-style:none;}
+  .updates ul, .contact ul, .recent ul{list-style:none;}
   .updates li{
     font-size:13.5px; color:var(--text-dim); line-height:1.7; margin-bottom:10px;
     padding-left:16px; position:relative;
   }
   .updates li::before{content:'→'; position:absolute; left:0; color:var(--purple);}
   .updates li b{color:var(--text); font-weight:500;}
+
+  .recent li{
+    font-size:14px; line-height:1.8; margin-bottom:8px;
+    padding-left:16px; position:relative;
+  }
+  .recent li::before{content:'✦'; position:absolute; left:0; top:2px; font-size:10px; color:var(--purple); opacity:.8;}
+  .recent li a,
+  .recent li a:visited,
+  .recent li a:active{
+    color:var(--text-dim); text-decoration:none;
+    transition:color .3s ease, text-shadow .3s ease;
+  }
+  .recent li a b{ color:var(--text); font-weight:600; transition:color .3s ease, text-shadow .3s ease; }
+  .recent li a:hover{ color:var(--blue); text-shadow:0 0 14px rgba(79,195,255,.45); }
+  .recent li a:hover b{ color:var(--purple); text-shadow:0 0 16px rgba(155,109,255,.55); }
 
   .contact ul{display:flex; flex-direction:column; gap:8px;}
   .contact a{ color:var(--text-dim); text-decoration:none; font-size:14px; transition:color .3s ease; }
@@ -93,20 +108,20 @@
     </ul>
   </nav>
 
-  <section id="recent" class="recent">
-    <h2 class="section-title">recent <span style="opacity:.5; text-transform:none; letter-spacing:0;">— recent stuff.</span></h2>
-    <ul>
-  <li><a href="https://thunderstore.io/c/northstar/p/Rwyn/Night_City"><b>Night City (Final)</b> on Thunderstore.</a></li>
-  <li><a href="https://www.nexusmods.com/titanfall2/mods/34"><b>Night City (Final)</b> on Nexus Mods.</a></li>
-  <li><a href="https://modworkshop.net/mod/54379"><b>Night City (Final)</b> on Modworkshop.</a></li>
-    </ul>
-  </section>
-  
   <section id="updates" class="updates">
     <h2 class="section-title">updates <span style="opacity:.5; text-transform:none; letter-spacing:0;">— last updated 8/11/24</span></h2>
     <ul>
       <li><b>Fallout 4 Photo Mode Rework:</b> no exact ETA — sole modder on it at the moment.</li>
       <li><b>C77 Asset Recycler:</b> mostly ready, still needs testing.</li>
+    </ul>
+  </section>
+
+  <section id="recent" class="recent">
+    <h2 class="section-title">recent <span style="opacity:.5; text-transform:none; letter-spacing:0;">— recent stuff.</span></h2>
+    <ul>
+      <li><a href="https://thunderstore.io/c/northstar/p/Rwyn/Night_City" target="_blank"><b>Night City (Final)</b> on Thunderstore.</a></li>
+      <li><a href="https://www.nexusmods.com/titanfall2/mods/34" target="_blank"><b>Night City (Final)</b> on Nexus Mods.</a></li>
+      <li><a href="https://modworkshop.net/mod/54379" target="_blank"><b>Night City (Final)</b> on Modworkshop.</a></li>
     </ul>
   </section>
 
@@ -123,7 +138,7 @@
 
 <script src="assets/js/site.js"></script>
 <script>
-// ---------- typing animation - probably stil works after migration - if not test it again ----------
+// ---------- typing animation - hopefully still works ----------
 const typedEl = document.getElementById('typed');
 const phrases = [
   'a proud owner of an original Blade Runner copy 🐐',
@@ -147,27 +162,14 @@ function typeTick(){
 typeTick();
 
 // ---------- permanent Night City slideshow in the right panel ----------
-// don't change dir ::: assets/img/mods/Rwyn_NightCity/
-const nightCityImgs = [
-  'assets/img/mods/Rwyn_NightCity/1.png',
-  'assets/img/mods/Rwyn_NightCity/2.png',
-  'assets/img/mods/Rwyn_NightCity/3.png',
-  'assets/img/mods/Rwyn_NightCity/4.png'
-  'assets/img/mods/Rwyn_NightCity/5.png'
-  'assets/img/mods/Rwyn_NightCity/6.png'
-  'assets/img/mods/Rwyn_NightCity/7.png'
-  'assets/img/mods/Rwyn_NightCity/8.png'
-  'assets/img/mods/Rwyn_NightCity/9.png'
-  'assets/img/mods/Rwyn_NightCity/10.png'
-  'assets/img/mods/Rwyn_NightCity/11.png'
-];
-const SLIDE_SECONDS = 2; // image fade in seocnds :: keep it 2 for now
+// note to self :: imgs now in assets/js/site.js (NIGHT_CITY_IMAGES) so pages stay in sync
+const SLIDE_SECONDS = 2; // image cycle in sceonds keep it 2 for now
 
 (async function initSlideshow(){
   const panel = document.getElementById('previewPanel');
-  const loaded = await Promise.all(nightCityImgs.map(preloadImage));
+  const loaded = await Promise.all(NIGHT_CITY_IMAGES.map(preloadImage));
 
-  nightCityImgs.forEach((src, s)=>{
+  NIGHT_CITY_IMAGES.forEach((src, s)=>{
     const el = document.createElement('div');
     el.className = 'pv-slide' + (s===0 ? ' on' : '');
     if(loaded[s]){
