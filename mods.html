@@ -107,17 +107,11 @@
 
 <script src="assets/js/site.js"></script>
 <script>
-// Night City screenshots: drop files into assets/img/mods/Rwyn_NightCity/ named 1.jpg, 2.jpg, 3.jpg...
-// (edit the array to match your filenames). Missing slots fall back to a placeholder gradient — nothing breaks.
+// Night City screenshot list lives in assets/js/site.js (NIGHT_CITY_IMAGES) — edit it once, both pages update.
 const mods = [
   {
     tag:'northstar · titanfall 2', name:'Night City', wip:false,
-    images:[
-      'assets/img/mods/Rwyn_NightCity/1.jpg',
-      'assets/img/mods/Rwyn_NightCity/2.jpg',
-      'assets/img/mods/Rwyn_NightCity/3.jpg',
-      'assets/img/mods/Rwyn_NightCity/4.jpg'
-    ],
+    images: NIGHT_CITY_IMAGES,
     fallbackHue:'320,70%,58%',
     links:[
       {label:'Thunderstore ↗', url:'https://thunderstore.io/c/northstar/p/Rwyn/Night_City'},
