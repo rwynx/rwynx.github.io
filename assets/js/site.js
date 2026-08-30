@@ -59,48 +59,52 @@ function preloadImage(src){
   });
 }
 
-// ---------- shared Night City screenshot list both index and mods.html use ----------
+// ---------- shared Night City screenshot list — edit here once, both index.html and mods.html use it ----------
+// these are the SMALL/compressed versions — shown in the panel thumbnail + mods.html cards.
 const NIGHT_CITY_IMAGES = [
-  'assets/img/mods/rwyn_nightcity/lowres/low_res1.jpg',
-  'assets/img/mods/rwyn_nightcity/lowres/low_res2.jpg',
-  'assets/img/mods/rwyn_nightcity/lowres/low_res3.jpg',
-  'assets/img/mods/rwyn_nightcity/lowres/low_res4.jpg',
-  'assets/img/mods/rwyn_nightcity/lowres/low_res5.jpg',
-  'assets/img/mods/rwyn_nightcity/lowres/low_res6.jpg',
-  'assets/img/mods/rwyn_nightcity/lowres/low_res7.jpg',
-  'assets/img/mods/rwyn_nightcity/lowres/low_res8.jpg',
-  'assets/img/mods/rwyn_nightcity/lowres/low_res9.jpg',
-  'assets/img/mods/rwyn_nightcity/lowres/low_res10.jpg',
-  'assets/img/mods/rwyn_nightcity/lowres/low_res11.jpg'
+  'assets/img/Rwyn_NightCity/LowRes/low_res1.jpg',
+  'assets/img/Rwyn_NightCity/LowRes/low_res2.jpg',
+  'assets/img/Rwyn_NightCity/LowRes/low_res3.jpg',
+  'assets/img/Rwyn_NightCity/LowRes/low_res4.jpg',
+  'assets/img/Rwyn_NightCity/LowRes/low_res5.jpg',
+  'assets/img/Rwyn_NightCity/LowRes/low_res6.jpg',
+  'assets/img/Rwyn_NightCity/LowRes/low_res7.jpg',
+  'assets/img/Rwyn_NightCity/LowRes/low_res8.jpg',
+  'assets/img/Rwyn_NightCity/LowRes/low_res9.jpg',
+  'assets/img/Rwyn_NightCity/LowRes/low_res10.jpg',
+  'assets/img/Rwyn_NightCity/LowRes/low_res11.jpg'
 ];
 
-// full-resolution originals - shown on hover popup
-// index i here must be the same shot as index i in NIGHT_CITY_IMAGES above, so they swap in correctly
+// full-resolution originals — ONLY ever shown in the home page's hover lightbox popup, never the panel thumbnail.
+// index i here must be the same shot as index i in NIGHT_CITY_IMAGES above, so they swap in correctly.
 const NIGHT_CITY_IMAGES_FULLRES = [
-  'assets/img/mods/rwyn_nightcity/fullres/full_res1.png',
-  'assets/img/mods/rwyn_nightcity/fullres/full_res2.png',
-  'assets/img/mods/rwyn_nightcity/fullres/full_res3.png',
-  'assets/img/mods/rwyn_nightcity/fullres/full_res4.png',
-  'assets/img/mods/rwyn_nightcity/fullres/full_res5.png',
-  'assets/img/mods/rwyn_nightcity/fullres/full_res6.png',
-  'assets/img/mods/rwyn_nightcity/fullres/full_res7.png',
-  'assets/img/mods/rwyn_nightcity/fullres/full_res8.png',
-  'assets/img/mods/rwyn_nightcity/fullres/full_res9.png',
-  'assets/img/mods/rwyn_nightcity/fullres/full_res10.png',
-  'assets/img/mods/rwyn_nightcity/fullres/full_res11.png'
+  'assets/img/Rwyn_NightCity/FullRes/full_res1.png',
+  'assets/img/Rwyn_NightCity/FullRes/full_res2.png',
+  'assets/img/Rwyn_NightCity/FullRes/full_res3.png',
+  'assets/img/Rwyn_NightCity/FullRes/full_res4.png',
+  'assets/img/Rwyn_NightCity/FullRes/full_res5.png',
+  'assets/img/Rwyn_NightCity/FullRes/full_res6.png',
+  'assets/img/Rwyn_NightCity/FullRes/full_res7.png',
+  'assets/img/Rwyn_NightCity/FullRes/full_res8.png',
+  'assets/img/Rwyn_NightCity/FullRes/full_res9.png',
+  'assets/img/Rwyn_NightCity/FullRes/full_res10.png',
+  'assets/img/Rwyn_NightCity/FullRes/full_res11.png'
 ];
 
-// tracks which full-res images have actually finished downloading/caching //
+// tracks which full-res images have actually finished downloading/caching
 const NIGHT_CITY_FULLRES_READY = new Array(NIGHT_CITY_IMAGES_FULLRES.length).fill(false);
 
-// cache full res images in the background
+// delay the cache a bit so they dont get stuck 404
 if(document.getElementById('lightboxOverlay')){
-  NIGHT_CITY_IMAGES_FULLRES.forEach((src, i)=>{
-    const img = new Image();
-    img.onload = ()=>{
-      NIGHT_CITY_FULLRES_READY[i] = true;
-      document.dispatchEvent(new CustomEvent('nightcity-fullres-ready', {detail:{index:i}}));
-    };
-    img.src = src;
+  window.addEventListener('load', ()=>{
+    NIGHT_CITY_IMAGES_FULLRES.forEach((src, i)=>{
+      const img = new Image();
+      if('fetchPriority' in img) img.fetchPriority = 'low';
+      img.onload = ()=>{
+        NIGHT_CITY_FULLRES_READY[i] = true;
+        document.dispatchEvent(new CustomEvent('nightcity-fullres-ready', {detail:{index:i}}));
+      };
+      img.src = src;
+    });
   });
 }
