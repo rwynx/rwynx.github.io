@@ -86,13 +86,14 @@
   }
   .preview-panel{
     position:relative;
-    width:min(38vw, 660px); height:min(72vh, 660px);
+    width:min(38vw, 660px); height:min(72vh, 660px); /* fallback before JS sizes it to the actual image */
     border-radius:20px; background:rgba(15,10,30,0.35);
     backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
     /* wider, lower-opacity outline per request (was 1px / .22, 80px / .28) */
     border:2px solid rgba(155,109,255,.14);
     box-shadow:0 0 0 1px rgba(79,195,255,.05), 0 0 110px -20px rgba(155,109,255,.2);
     overflow:hidden; cursor:pointer;
+    transition:width .5s cubic-bezier(.16,1,.3,1), height .5s cubic-bezier(.16,1,.3,1);
   }
   .preview-panel .pv-slide{ position:absolute; inset:0; opacity:0; transition:opacity 1.1s ease; background-size:contain; background-repeat:no-repeat; background-position:center; }
   .preview-panel .pv-slide.on{opacity:1;}
@@ -255,7 +256,26 @@ const SLIDE_SECONDS = 2; // image cycle in sceonds keep it 2 for now
   const prevArrow = document.getElementById('pvPrev');
   const nextArrow = document.getElementById('pvNext');
 
-  // force placeholder graident first
+  // natural pixel size of each image, filled in as each one finishes loading; null = not known yet
+  const naturalSizes = new Array(NIGHT_CITY_IMAGES.length).fill(null);
+
+  // fits the panel box to whatever aspect ratio is passed, inside a bounding box (same footprint as before).
+  // no size = default to 16:9 until the real image has loaded. skipped on mobile — that layout stays CSS-controlled.
+  function applyPanelAspect(size){
+    if(window.innerWidth <= 900) return;
+    const w0 = size ? size.w : 16, h0 = size ? size.h : 9;
+    const boundW = Math.min(window.innerWidth * 0.38, 660);
+    const boundH = Math.min(window.innerHeight * 0.72, 660);
+    const ratio = w0 / h0;
+    let w, h;
+    if(ratio >= boundW / boundH){ w = boundW; h = boundW / ratio; }
+    else { h = boundH; w = boundH * ratio; }
+    panel.style.width = w + 'px';
+    panel.style.height = h + 'px';
+  }
+  applyPanelAspect(null); // sensible 16:9 default before anything has loaded
+
+  // force placeholder gradient first
   NIGHT_CITY_IMAGES.forEach((src, s)=>{
     const el = document.createElement('div');
     el.className = 'pv-slide' + (s===0 ? ' on' : '');
@@ -267,6 +287,8 @@ const SLIDE_SECONDS = 2; // image cycle in sceonds keep it 2 for now
     const img = new Image();
     img.onload = ()=>{
       el.style.backgroundImage = `url('${src}')`;
+      naturalSizes[s] = {w: img.naturalWidth, h: img.naturalHeight};
+      if(s === idx) applyPanelAspect(naturalSizes[s]); // reshape now if this is the one currently showing
       if(slides[idx] === el) syncLightbox(); // currently-shown slide just got its real image
     };
     img.src = src;
@@ -289,6 +311,7 @@ const SLIDE_SECONDS = 2; // image cycle in sceonds keep it 2 for now
     slides[idx].classList.remove('on');
     idx = (newIdx + slides.length) % slides.length;
     slides[idx].classList.add('on');
+    applyPanelAspect(naturalSizes[idx]); // reshape the box to match this slide's own aspect ratio
     syncLightbox();
   }
 
@@ -298,6 +321,9 @@ const SLIDE_SECONDS = 2; // image cycle in sceonds keep it 2 for now
   }
   startAutoCycle();
   syncLightbox();
+
+  // keep the panel's bounding box (not just its shape) responsive to viewport resizes
+  window.addEventListener('resize', ()=> applyPanelAspect(naturalSizes[idx]));
 
   // manual < / > navigation — jumps a slide and restarts the auto-cycle timer from there
   prevArrow.addEventListener('click', ()=>{ goTo(idx-1); startAutoCycle(); });
