@@ -21,13 +21,25 @@
   .mods-wrap{
     position:relative; z-index:2;
     min-height:78vh;
-    display:flex; align-items:center; justify-content:center;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px;
     padding:4vh 6vw 8vh;
   }
   .mods-grid{
     display:flex; gap:34px; flex-wrap:wrap; justify-content:center; align-items:stretch;
     max-width:1200px;
   }
+
+  /* "← Go back" — sits above the card grid, a bit smaller than the page-title */
+  .go-back a{
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:'JetBrains Mono',monospace; font-weight:600;
+    font-size:clamp(18px,2.6vw,24px);
+    text-decoration:none;
+    background:linear-gradient(120deg,#fff 0%, var(--purple) 55%, var(--blue) 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    opacity:.85; transition:opacity .3s ease, transform .3s ease;
+  }
+  .go-back a:hover{ opacity:1; transform:translateX(-4px); }
 
   .big-card{
     position:relative;
@@ -102,6 +114,7 @@
 </header>
 
 <div class="mods-wrap">
+  <div class="go-back"><a href="index.html">← Go back</a></div>
   <div class="mods-grid" id="modsGrid"></div>
 </div>
 
