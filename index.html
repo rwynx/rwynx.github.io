@@ -170,7 +170,7 @@
 
   <section id="recent" class="recent">
     <h2 class="section-title">recent <span style="opacity:.5; text-transform:none; letter-spacing:0;">— recent stuff</span></h2>
-    <!-- new pill-button version (same style as mods.html card links, stacked vertically) -->
+    <!-- new pill-button stacked vertically :: keep it) -->
     <div class="recent-title">Night City (Final)</div>
     <div class="recent-pills">
       <a href="https://thunderstore.io/c/northstar/p/Rwyn/Night_City" target="_blank">Thunderstore ↗</a>
@@ -255,7 +255,7 @@ const SLIDE_SECONDS = 2; // image cycle in sceonds keep it 2 for now
   const prevArrow = document.getElementById('pvPrev');
   const nextArrow = document.getElementById('pvNext');
 
-  // build every slide immediately with a placeholder gradient — don't wait on any downloads
+  // force placeholder graident first
   NIGHT_CITY_IMAGES.forEach((src, s)=>{
     const el = document.createElement('div');
     el.className = 'pv-slide' + (s===0 ? ' on' : '');
@@ -279,8 +279,7 @@ const SLIDE_SECONDS = 2; // image cycle in sceonds keep it 2 for now
   let idx = 0;
   let cycleInterval = null;
 
-  // shows the full-res version of whatever slide is currently active in the panel.
-  // falls back to the panel's own (compressed) thumbnail if the full-res copy hasn't finished caching yet.
+  // shows the full-res version of whatever slide is currently active in the panel
   function syncLightbox(){
     if(NIGHT_CITY_FULLRES_READY[idx]){
       lightboxImg.style.backgroundImage = `url('${NIGHT_CITY_IMAGES_FULLRES[idx]}')`;
