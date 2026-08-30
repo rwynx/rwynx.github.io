@@ -90,7 +90,7 @@ const NIGHT_CITY_IMAGES_FULLRES = [
   'assets/img/mods/rwyn_nightcity/fullres/full_res11.png'
 ];
 
-// tracks which full-res images have actually finished downloading/caching
+// tracks which full-res images have actually finished downloading/caching //
 const NIGHT_CITY_FULLRES_READY = new Array(NIGHT_CITY_IMAGES_FULLRES.length).fill(false);
 
 // cache full res images in the background
