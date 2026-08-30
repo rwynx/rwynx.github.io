@@ -89,9 +89,12 @@
     width:min(38vw, 660px); height:min(72vh, 660px); /* fallback before JS sizes it to the actual image */
     border-radius:20px; background:rgba(15,10,30,0.35);
     backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
-    /* wider, lower-opacity outline per request (was 1px / .22, 80px / .28) */
-    border:2px solid rgba(155,109,255,.14);
-    box-shadow:0 0 0 1px rgba(79,195,255,.05), 0 0 110px -20px rgba(155,109,255,.2);
+    /* outline strength lives here: border alpha (currently .30), then box-shadow's two layers —
+       first is a thin crisp ring, second is the actual glow (blur px, then negative-spread px = how
+       far it's pulled in from the edge, then its own alpha). Bump blur/alpha or shrink the negative
+       spread to make the glow wider/stronger. */
+    border:2px solid rgba(155,109,255,.30);
+    box-shadow:0 0 0 1px rgba(79,195,255,.12), 0 0 170px -8px rgba(155,109,255,.5);
     overflow:hidden; cursor:pointer;
     transition:width .5s cubic-bezier(.16,1,.3,1), height .5s cubic-bezier(.16,1,.3,1);
   }
