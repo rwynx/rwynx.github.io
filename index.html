@@ -130,8 +130,7 @@
   }
   .lightbox-overlay.open{
     opacity:1;
-    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); /* the ~20% blur
-    */
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); /* the "~20% blur" of the background */
   }
   .lightbox-img{
     width:min(70vw, 900px); height:min(75vh, 780px);
@@ -178,7 +177,7 @@
       <a href="https://www.nexusmods.com/titanfall2/mods/34" target="_blank">Nexus Mods ↗</a>
       <a href="https://modworkshop.net/mod/54379" target="_blank">Modworkshop ↗</a>
     </div>
-    <!-- old arrow-bullet version —uncomment it if new doesnt work
+    <!-- old arrow-bullet version — delete the block above and uncomment this to go back
     <ul>
       <li><a href="https://thunderstore.io/c/northstar/p/Rwyn/Night_City" target="_blank"><b>Night City (Final)</b> on Thunderstore.</a></li>
       <li><a href="https://www.nexusmods.com/titanfall2/mods/34" target="_blank"><b>Night City (Final)</b> on Nexus Mods.</a></li>
@@ -209,7 +208,7 @@
   <div class="preview-panel" id="previewPanel"></div>
   <div class="preview-caption">
     <span class="nav-arrow" id="pvPrev">‹</span>
-    <span class="caption-text" id="pvCaption">Night City Preview</span>
+    <span class="caption-text" id="pvCaption"><!-- fill in a caption, e.g. "Night City Preview" --></span>
     <span class="nav-arrow" id="pvNext">›</span>
   </div>
 </div>
@@ -249,25 +248,29 @@ typeTick();
 // note to self :: imgs now in assets/js/site.js (NIGHT_CITY_IMAGES) so pages stay in sync
 const SLIDE_SECONDS = 2; // image cycle in sceonds keep it 2 for now
 
-(async function initSlideshow(){
+(function initSlideshow(){
   const panel = document.getElementById('previewPanel');
   const lightboxOverlay = document.getElementById('lightboxOverlay');
   const lightboxImg = document.getElementById('lightboxImg');
   const prevArrow = document.getElementById('pvPrev');
   const nextArrow = document.getElementById('pvNext');
 
-  const loaded = await Promise.all(NIGHT_CITY_IMAGES.map(preloadImage));
-
+  // build every slide immediately with a placeholder gradient — don't wait on any downloads
   NIGHT_CITY_IMAGES.forEach((src, s)=>{
     const el = document.createElement('div');
     el.className = 'pv-slide' + (s===0 ? ' on' : '');
-    if(loaded[s]){
-      el.style.backgroundImage = `url('${src}')`;
-    } else {
-      const h1 = 260 + s*24;
-      el.style.background = `linear-gradient(155deg, hsl(${h1},65%,55%) 0%, hsl(${h1+40},65%,55%) 100%)`;
-    }
+    const h1 = 260 + s*24;
+    el.style.background = `linear-gradient(155deg, hsl(${h1},65%,55%) 0%, hsl(${h1+40},65%,55%) 100%)`;
     panel.appendChild(el);
+
+    // load this one image on its own; swap it in the moment it's ready (doesn't block the others)
+    const img = new Image();
+    img.onload = ()=>{
+      el.style.backgroundImage = `url('${src}')`;
+      el.style.background = 'none';
+      if(slides[idx] === el) syncLightbox(); // currently-shown slide just got its real image
+    };
+    img.src = src;
   });
 
   const slides = panel.querySelectorAll('.pv-slide');
@@ -276,10 +279,21 @@ const SLIDE_SECONDS = 2; // image cycle in sceonds keep it 2 for now
   let idx = 0;
   let cycleInterval = null;
 
-  // shows the lightbox image for whatever slide is currently active
+  // shows the full-res version of whatever slide is currently active in the panel.
+  // falls back to the panel's own (compressed) thumbnail if the full-res copy hasn't finished caching yet.
   function syncLightbox(){
-    lightboxImg.style.backgroundImage = slides[idx].style.backgroundImage || '';
-    lightboxImg.style.background = slides[idx].style.backgroundImage ? '' : slides[idx].style.background;
+    if(NIGHT_CITY_FULLRES_READY[idx]){
+      lightboxImg.style.backgroundImage = `url('${NIGHT_CITY_IMAGES_FULLRES[idx]}')`;
+      lightboxImg.style.background = 'none';
+    } else {
+      const current = slides[idx];
+      if(current.style.backgroundImage && current.style.backgroundImage !== 'none'){
+        lightboxImg.style.backgroundImage = current.style.backgroundImage;
+      } else {
+        lightboxImg.style.backgroundImage = 'none';
+        lightboxImg.style.background = current.style.background;
+      }
+    }
   }
 
   function goTo(newIdx){
@@ -299,6 +313,11 @@ const SLIDE_SECONDS = 2; // image cycle in sceonds keep it 2 for now
   // manual < / > navigation — jumps a slide and restarts the auto-cycle timer from there
   prevArrow.addEventListener('click', ()=>{ goTo(idx-1); startAutoCycle(); });
   nextArrow.addEventListener('click', ()=>{ goTo(idx+1); startAutoCycle(); });
+
+  // if the full-res copy of whatever's currently shown finishes caching while the lightbox is open, upgrade it live
+  document.addEventListener('nightcity-fullres-ready', e=>{
+    if(e.detail.index === idx) syncLightbox();
+  });
 
   // hover the panel -> full-res popup + blurred background; leave -> closes
   panel.addEventListener('mouseenter', ()=> lightboxOverlay.classList.add('open'));
