@@ -137,7 +137,7 @@ const mods = [
 
 const grid = document.getElementById('modsGrid');
 
-mods.forEach(async (mod, i)=>{
+mods.forEach((mod, i)=>{
   const card = document.createElement('div');
   card.className = 'big-card' + (mod.wip ? ' wip' : '');
 
@@ -179,15 +179,19 @@ mods.forEach(async (mod, i)=>{
   const slides = card.querySelectorAll('.slide');
   const dots = card.querySelectorAll('.dots span');
 
-  const loaded = await Promise.all(mod.images.map(preloadImage));
-  slides.forEach((el, s)=>{ if(loaded[s]) el.style.backgroundImage = `url('${mod.images[s]}')`; });
-
+  // auto-cycle starts right away with placeholders; real screenshots swap in individually as each finishes loading
   let idx = 0;
   setInterval(()=>{
     slides[idx].classList.remove('on'); dots[idx].classList.remove('on');
     idx = (idx+1) % slides.length;
     slides[idx].classList.add('on'); dots[idx].classList.add('on');
   }, 2200);
+
+  mod.images.forEach((src, s)=>{
+    const img = new Image();
+    img.onload = ()=>{ slides[s].style.backgroundImage = `url('${src}')`; };
+    img.src = src;
+  });
 });
 </script>
 </body>
