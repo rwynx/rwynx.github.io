@@ -31,6 +31,35 @@
   });
   document.addEventListener('mouseleave', ()=>{ mouse.x=-9999; mouse.y=-9999; });
 
+  // ==================== RIPPLE EFFECT — click on empty space, expanding rings fade out ====================
+  // experimental / easy to remove: delete this block (down to the matching ==== END ==== line) to revert.
+  let ripples = [];
+  document.addEventListener('click', e=>{
+    // skip clicks on actual interactive stuff — only "empty" background clicks should ripple
+    if(e.target.closest('a, button, .preview-panel, .nav-arrow, .big-card, .go-back, input, textarea, select')) return;
+    ripples.push({x:e.clientX, y:e.clientY, born:performance.now()});
+  });
+  const RIPPLE_LIFE_MS = 900, RIPPLE_MAX_R = 150;
+  function drawRipples(now){
+    ripples = ripples.filter(rp => now - rp.born < RIPPLE_LIFE_MS);
+    for(const rp of ripples){
+      const t = (now - rp.born) / RIPPLE_LIFE_MS; // 0 -> 1
+      const r = t * RIPPLE_MAX_R;
+      const alpha = 0.5 * (1 - t);
+      ctx.beginPath();
+      ctx.strokeStyle = `rgba(155,109,255,${alpha})`;
+      ctx.lineWidth = 2;
+      ctx.arc(rp.x, rp.y, r, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.strokeStyle = `rgba(79,195,255,${alpha*0.7})`;
+      ctx.lineWidth = 1;
+      ctx.arc(rp.x, rp.y, r*0.7, 0, Math.PI*2);
+      ctx.stroke();
+    }
+  }
+  // ==================== END RIPPLE EFFECT ====================
+
   function tick(){
     ctx.clearRect(0,0,w,h);
     for(const p of particles){
@@ -44,6 +73,7 @@
       ctx.beginPath(); ctx.fillStyle = `rgba(${p.c},${Math.max(0.08,alpha)})`;
       ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
     }
+    drawRipples(performance.now()); // <- remove this line too if deleting the ripple block above
     requestAnimationFrame(tick);
   }
   tick();
