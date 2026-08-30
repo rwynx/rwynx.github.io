@@ -260,7 +260,7 @@ const SLIDE_SECONDS = 2; // image cycle in sceonds keep it 2 for now
     const el = document.createElement('div');
     el.className = 'pv-slide' + (s===0 ? ' on' : '');
     const h1 = 260 + s*24;
-    el.style.background = `linear-gradient(155deg, hsl(${h1},65%,55%) 0%, hsl(${h1+40},65%,55%) 100%)`;
+    el.style.backgroundImage = `linear-gradient(155deg, hsl(${h1},65%,55%) 0%, hsl(${h1+40},65%,55%) 100%)`;
     panel.appendChild(el);
 
     // load this one image on its own; swap it in the moment it's ready (doesn't block the others)
@@ -280,19 +280,9 @@ const SLIDE_SECONDS = 2; // image cycle in sceonds keep it 2 for now
 
   // shows the full-res version of whatever slide is currently active in the panel
   function syncLightbox(){
-    if(NIGHT_CITY_FULLRES_READY[idx]){
-      lightboxImg.style.background = ''; // clear any leftover placeholder gradient first
-      lightboxImg.style.backgroundImage = `url('${NIGHT_CITY_IMAGES_FULLRES[idx]}')`;
-    } else {
-      const current = slides[idx];
-      if(current.style.backgroundImage && current.style.backgroundImage !== 'none'){
-        lightboxImg.style.background = '';
-        lightboxImg.style.backgroundImage = current.style.backgroundImage;
-      } else {
-        lightboxImg.style.backgroundImage = 'none';
-        lightboxImg.style.background = current.style.background;
-      }
-    }
+    lightboxImg.style.backgroundImage = NIGHT_CITY_FULLRES_READY[idx]
+      ? `url('${NIGHT_CITY_IMAGES_FULLRES[idx]}')`
+      : slides[idx].style.backgroundImage; // fall back to whatever the panel is currently showing
   }
 
   function goTo(newIdx){
