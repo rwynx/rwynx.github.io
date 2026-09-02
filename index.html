@@ -66,12 +66,13 @@
   /* new pill-button style for .recent, ported from the mods.html card links, stacked vertically here */
   .recent-title{ font-size:18px; font-weight:600; margin-bottom:12px; }
   .recent-pills{ display:flex; flex-direction:column; gap:10px; align-items:flex-start; }
+  @keyframes pillBounce{ 0%{transform:scale(1);} 45%{transform:scale(1.12);} 75%{transform:scale(.97);} 100%{transform:scale(1);} }
   .recent-pills a{
     font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text);
     border:1px solid rgba(155,109,255,.4); padding:8px 14px; border-radius:9px;
-    text-decoration:none; transition:background .3s ease, border-color .3s ease;
+    text-decoration:none; transition:background .3s ease, border-color .3s ease, transform .25s ease-out;
   }
-  .recent-pills a:hover{ background:rgba(155,109,255,.18); border-color:var(--purple); }
+  .recent-pills a:hover{ background:rgba(155,109,255,.18); border-color:var(--purple); animation:pillBounce .45s cubic-bezier(.34,1.56,.64,1); }
 
   .contact ul{display:flex; flex-direction:column; gap:8px;}
   .contact a{ color:var(--text-dim); text-decoration:none; font-size:14px; transition:color .3s ease; }

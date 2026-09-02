@@ -79,13 +79,14 @@
   }
   .big-card .name{ font-size:22px; font-weight:600; margin-bottom:12px; }
   .big-card .links{ display:flex; gap:10px; flex-wrap:wrap; }
+  @keyframes pillBounce{ 0%{transform:scale(1);} 45%{transform:scale(1.12);} 75%{transform:scale(.97);} 100%{transform:scale(1);} }
   .big-card .links a{
     font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text);
     border:1px solid rgba(155,109,255,.4); padding:6px 11px; border-radius:8px;
-    text-decoration:none; transition:background .3s ease, border-color .3s ease;
+    text-decoration:none; transition:background .3s ease, border-color .3s ease, transform .25s ease-out;
     position:relative; z-index:3;
   }
-  .big-card .links a:hover{ background:rgba(155,109,255,.18); border-color:var(--purple); }
+  .big-card .links a:hover{ background:rgba(155,109,255,.18); border-color:var(--purple); animation:pillBounce .45s cubic-bezier(.34,1.56,.64,1); }
   .big-card .dots{ position:absolute; top:14px; right:14px; display:flex; gap:5px; z-index:3; opacity:0; transition:opacity .3s ease .1s; }
   .big-card:hover .dots{opacity:1;}
   .dots span{width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,.3); transition:background .3s ease;}
@@ -128,7 +129,8 @@ const mods = [
     fallbackHue:'320,70%,58%',
     links:[
       {label:'Thunderstore ↗', url:'https://thunderstore.io/c/northstar/p/Rwyn/Night_City'},
-      {label:'NexusMods ↗', url:'https://www.nexusmods.com/titanfall2/mods/34'}
+      {label:'NexusMods ↗', url:'https://www.nexusmods.com/titanfall2/mods/34'},
+      {label:'Modworkshop ↗', url:'https://modworkshop.net/mod/54379'}
     ]
   },
   { tag:'fallout 4', name:'Photo Mode Rework', wip:true, badge:'in progress' },
