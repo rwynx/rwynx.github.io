@@ -73,12 +73,6 @@
   }
   .recent-pills a:hover{ background:rgba(155,109,255,.18); border-color:var(--purple); }
 
-  /* ---- anime.js: page-load stagger reveal (.reveal-item) + scroll fade+slide (.scroll-reveal) ----
-     both start hidden here so there's no flash of visible content before the anime.js import at the
-     bottom of the page runs; that same script also has a fallback timeout in case the esm.sh CDN fails. */
-  .reveal-item{ opacity:0; }
-  .scroll-reveal{ opacity:0; }
-
   .contact ul{display:flex; flex-direction:column; gap:8px;}
   .contact a{ color:var(--text-dim); text-decoration:none; font-size:14px; transition:color .3s ease; }
   .contact a:hover{color:var(--blue);}
@@ -159,17 +153,17 @@
 <div class="cursor-glow" id="glow"></div>
 
 <main>
-  <div class="brand reveal-item">
+  <div class="brand">
     <img src="assets/img/logo.png" alt="" onerror="this.style.display='none'">
     <h1>Rwyn's Blog</h1>
   </div>
-  <p class="tagline reveal-item"><span>I don't make maps or mods for money.</span><span>Don't waste both of our time asking.</span></p>
+  <p class="tagline"><span>I don't make maps or mods for money.</span><span>Don't waste both of our time asking.</span></p>
 
-  <div class="typing-wrap reveal-item">
+  <div class="typing-wrap">
     <span class="lead">i am</span><span class="typed" id="typed"></span><span class="cursor"></span>
   </div>
 
-  <nav class="main-nav reveal-item">
+  <nav class="main-nav">
     <ul>
       <li><a href="index.html" class="active">Home</a></li>
       <li><a href="mods.html">Mods</a></li>
@@ -178,7 +172,7 @@
     </ul>
   </nav>
 
-  <section id="recent" class="recent scroll-reveal">
+  <section id="recent" class="recent">
     <h2 class="section-title">recent <span style="opacity:.5; text-transform:none; letter-spacing:0;">— recent stuff</span></h2>
     <!-- new pill-button stacked vertically :: keep it) -->
     <div class="recent-title">Night City (Final)</div>
@@ -196,7 +190,7 @@
     -->
   </section>
 
-  <section id="updates" class="updates scroll-reveal">
+  <section id="updates" class="updates">
     <h2 class="section-title">updates <span style="opacity:.5; text-transform:none; letter-spacing:0;">— last updated 8/11/24</span></h2>
     <ul>
       <li><b>Fallout 4 Photo Mode Rework:</b> no exact ETA — sole modder on it at the moment.</li>
@@ -204,7 +198,7 @@
     </ul>
   </section>
 
-  <section id="contact" class="contact scroll-reveal">
+  <section id="contact" class="contact">
     <h2 class="section-title">contact <span style="opacity:.5; text-transform:none; letter-spacing:0;">— steam, preferably</span></h2>
     <ul>
       <li><b>Github:</b><a href="https://github.com/rwynx" target="_blank">github.com/rwynx</a></li>
@@ -347,41 +341,6 @@ const SLIDE_SECONDS = 2; // image cycle in sceonds keep it 2 for now
   panel.addEventListener('mouseenter', ()=> lightboxOverlay.classList.add('open'));
   panel.addEventListener('mouseleave', ()=> lightboxOverlay.classList.remove('open'));
 })();
-</script>
-
-<!-- fallback safety net: if the esm.sh CDN below fails to load for any reason, don't leave
-     .reveal-item / .scroll-reveal elements stuck at opacity:0 forever -->
-<script>
-  setTimeout(()=>{
-    document.querySelectorAll('.reveal-item, .scroll-reveal').forEach(el=>{
-      if(el.style.opacity !== '1') el.style.opacity = '1';
-    });
-  }, 2500);
-</script>
-
-<script type="module">
-// ---------- anime.js v4 (ES module, via esm.sh) ----------
-import { animate, stagger, onScroll } from 'https://esm.sh/animejs@4';
-
-// page-load stagger: brand -> tagline -> typing line -> nav appear one after another
-animate('.reveal-item', {
-  opacity: [0, 1],
-  translateY: [22, 0],
-  duration: 700,
-  delay: stagger(140),
-  ease: 'outQuad'
-});
-
-// Recent / Updates / Contact fade + slide up into place as they're scrolled into view (plays once each)
-document.querySelectorAll('.scroll-reveal').forEach(section=>{
-  animate(section, {
-    opacity: [0, 1],
-    translateY: [40, 0],
-    duration: 800,
-    ease: 'outQuad',
-    autoplay: onScroll({ target: section, enter: 'bottom-=60 top' })
-  });
-});
 </script>
 </body>
 </html>

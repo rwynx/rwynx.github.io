@@ -92,10 +92,6 @@
   .dots span.on{background:var(--pink);}
 
   @media(max-width:720px){ .big-card{width:100%; max-width:360px; aspect-ratio:4/5;} }
-
-  /* ---- anime.js: page-load stagger reveal, same pattern as index.html — see esm.sh import at bottom.
-     .big-card gets this class added in JS when each card is built, since the grid is populated dynamically. ---- */
-  .reveal-item{ opacity:0; }
 </style>
 </head>
 <body>
@@ -106,8 +102,8 @@
 <div class="cursor-glow" id="glow"></div>
 
 <header class="page-head">
-  <h1 class="page-title reveal-item">Mods</h1>
-  <nav class="main-nav reveal-item">
+  <h1 class="page-title">Mods</h1>
+  <nav class="main-nav">
     <ul>
       <li><a href="index.html">Home</a></li>
       <li><a href="mods.html" class="active">Mods</a></li>
@@ -118,7 +114,7 @@
 </header>
 
 <div class="mods-wrap">
-  <div class="go-back reveal-item"><a href="index.html">← Go back</a></div>
+  <div class="go-back"><a href="index.html">← Go back</a></div>
   <div class="mods-grid" id="modsGrid"></div>
 </div>
 
@@ -143,7 +139,7 @@ const grid = document.getElementById('modsGrid');
 
 mods.forEach((mod, i)=>{
   const card = document.createElement('div');
-  card.className = 'big-card reveal-item' + (mod.wip ? ' wip' : '');
+  card.className = 'big-card' + (mod.wip ? ' wip' : '');
 
   if(mod.wip){
     card.innerHTML = `
@@ -196,32 +192,6 @@ mods.forEach((mod, i)=>{
     img.onload = ()=>{ slides[s].style.backgroundImage = `url('${src}')`; };
     img.src = src;
   });
-});
-</script>
-
-<!-- fallback safety net: if the esm.sh CDN below fails to load for any reason, don't leave
-     .reveal-item elements (title, nav, go-back, cards) stuck at opacity:0 forever -->
-<script>
-  setTimeout(()=>{
-    document.querySelectorAll('.reveal-item').forEach(el=>{
-      if(el.style.opacity !== '1') el.style.opacity = '1';
-    });
-  }, 2500);
-</script>
-
-<script type="module">
-// ---------- anime.js v4 (ES module, via esm.sh) ----------
-// page-load stagger: title -> nav -> go-back -> the 3 cards appear one after another.
-// this script runs after the classic script above (module scripts are deferred), so the
-// dynamically-built .big-card elements already exist in the DOM by the time this fires.
-import { animate, stagger } from 'https://esm.sh/animejs@4';
-
-animate('.reveal-item', {
-  opacity: [0, 1],
-  translateY: [22, 0],
-  duration: 700,
-  delay: stagger(140),
-  ease: 'outQuad'
 });
 </script>
 </body>
