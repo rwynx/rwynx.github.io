@@ -106,7 +106,7 @@
     <div class="go-back-inline"><a href="../tools.html">← Go back</a></div>
     <div>
       <div class="panel-title">NovelAI Metadata Inspector</div>
-      <p class="status-msg" id="statusMsg">You upload a PNG, I read the metadata — everything runs in your browser.</p>
+      <p class="status-msg" id="statusMsg">You upload a PNG, I read the metadata — everything runs in your browser, never sent to any server.</p>
     </div>
 
     <div class="field-group">
@@ -146,15 +146,8 @@
 
 <script src="../assets/js/site.js"></script>
 <script>
-// ---------- NovelAI stealth-PNG metadata reader + full eraser ----------
-// everything below runs entirely client-side: the image is never uploaded anywhere, all decoding happens
-// in this browser tab via <canvas> + the File API.
-//
-// format reverse-engineered from NovelAI's own open-source nai_meta.py (github.com/NovelAI/novelai-image-metadata):
-// the hidden payload lives LSB-encoded in the PNG's alpha channel, read in COLUMN-MAJOR order (x outer
-// loop, y inner — NOT the row-major order canvases normally use), then packed 8 bits/byte MSB-first.
-// layout after that: 15-byte magic "stealth_pngcomp" -> 4-byte big-endian bit-length -> gzip-compressed JSON.
-// that JSON's "Comment" field is itself a JSON string holding the actual prompt/settings.
+// NAI stealth-PNG metadata reader + eraser format reverse-engineered from
+// NovelAIs own open-source nai_meta.py if its broken, can be fixed by redoing the 1st step /// keep for now :----------
 
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
@@ -174,8 +167,7 @@ const ctx = workCanvas.getContext('2d', {willReadFrequently:true});
 let currentFileBase = 'image';
 let lastImgSize = null;
 
-// sizes the right-hand box to the actual image's aspect ratio, bounded within a sensible box — same
-// idea as the preview panel on the home page, so we don't get the squished/cropped look on odd ratios.
+// to keep the image canvas same as image itself, dont touch i,t!!1
 function applyRightPanelAspect(size){
   if(window.innerWidth <= 900 || !size){ dropZone.style.width=''; dropZone.style.height=''; dropZone.style.minHeight=''; return; }
   const boundW = Math.min(window.innerWidth * 0.5, 900);
@@ -355,14 +347,14 @@ function clearImage(){
   dropZone.innerHTML = '<div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop a NovelAI PNG here</div>';
   imageActions.style.display = 'none';
   clearFields();
-  setStatus('Upload a NovelAI PNG — metadata is read automatically. The image is never uploaded anywhere; everything is processed in your browser.', '');
+  setStatus('You upload a PNG, I read the metadata — everything runs in your browser, never sent to any server.', '');
   workCanvas.width = 0; workCanvas.height = 0;
   currentFileBase = 'image';
 }
 
 async function handleFile(file){
   if(!/png$/i.test(file.type) && !/\.png$/i.test(file.name)){
-    setStatus('Only PNG is supported (NovelAI doesn\'t embed metadata in JPEG).', 'error');
+    setStatus('Only PNG is supported. NAI doesn\'t embed JPG files.', 'error');
     return;
   }
   currentFileBase = file.name.replace(/\.png$/i, '');
@@ -405,14 +397,14 @@ async function handleFile(file){
   }
 
   if(!outer || !outer.Comment || typeof outer.Comment === 'string'){
-    setStatus('No NovelAI metadata found in this image.', 'error');
+    setStatus('This doesn\'t seem like a NovelAI png. Only NAI PNGs are supported.', 'error');
     return;
   }
 
   const comment = outer.Comment;
   const fields = extractFields(comment);
   renderFields(fields, comment, outer);
-  setStatus('Metadata loaded.', 'ok');
+  setStatus('I read the metadata.', 'ok');
 }
 
 eraseBtn.addEventListener('click', ()=>{
