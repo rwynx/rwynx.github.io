@@ -112,7 +112,7 @@
   <div class="tools-left">
     <div>
       <div class="panel-title">NovelAI Metadata Inspector</div>
-      <p class="status-msg" id="statusMsg">Bir NovelAI PNG yükle — metadata otomatik okunur. Görsel hiçbir sunucuya gönderilmez, her şey tarayıcıda işlenir.</p>
+      <p class="status-msg" id="statusMsg">You upload a PNG, I read the metadata — No data sent to any server, everything happens in your browser.</p>
     </div>
 
     <div class="field-group">
@@ -135,7 +135,7 @@
       <div class="details-grid" id="detailsGrid"></div>
     </div>
 
-    <button class="btn-erase" id="eraseBtn" disabled>Erase Metadata (Full)</button>
+    <button class="btn-erase" id="eraseBtn" disabled>Erase Metadata</button>
   </div>
 
   <div class="tools-right" id="dropZone">
@@ -147,16 +147,7 @@
 
 <script src="assets/js/site.js"></script>
 <script>
-// ---------- NovelAI stealth-PNG metadata reader + full eraser ----------
-// everything below runs entirely client-side: the image is never uploaded anywhere, all decoding happens
-// in this browser tab via <canvas> + the File API.
-//
-// format reverse-engineered from NovelAI's own open-source nai_meta.py (github.com/NovelAI/novelai-image-metadata):
-// the hidden payload lives LSB-encoded in the PNG's alpha channel, read in COLUMN-MAJOR order (x outer
-// loop, y inner — NOT the row-major order canvases normally use), then packed 8 bits/byte MSB-first.
-// layout after that: 15-byte magic "stealth_pngcomp" -> 4-byte big-endian bit-length -> gzip-compressed JSON.
-// that JSON's "Comment" field is itself a JSON string holding the actual prompt/settings.
-
+  
 const dropZone = document.getElementById('dropZone');
 const dropHint = document.getElementById('dropHint');
 const fileInput = document.getElementById('fileInput');
@@ -205,7 +196,7 @@ function loadImageEl(url){
   });
 }
 
-// ---- stealth alpha-channel decode (mirrors nai_meta.py's byteize + LSBExtractor) ----
+// nai_meta.py's byteize + LSBExtractor) should work
 async function extractStealthPng(imageData, width, height){
   const total = width*height;
   const bits = new Uint8Array(total);
@@ -336,7 +327,7 @@ function clearFields(){
 
 async function handleFile(file){
   if(!/png$/i.test(file.type) && !/\.png$/i.test(file.name)){
-    setStatus('Sadece PNG destekleniyor (NovelAI JPEG\'e metadata gömümüyor).', 'error');
+    setStatus('Only NAI PNG format is supported.', 'error');
     return;
   }
   currentFileBase = file.name.replace(/\.png$/i, '');
@@ -377,7 +368,7 @@ async function handleFile(file){
   }
 
   if(!outer || !outer.Comment || typeof outer.Comment === 'string'){
-    setStatus('Bu görselde NovelAI metadata\'sı bulunamadı.', 'error');
+    setStatus('I couldn\'t find any NAI metadata in this image.', 'error');
     eraseBtn.disabled = true;
     return;
   }
@@ -385,7 +376,7 @@ async function handleFile(file){
   const comment = outer.Comment;
   const fields = extractFields(comment);
   renderFields(fields, comment, outer);
-  setStatus('Metadata okundu.', 'ok');
+  setStatus('Found the metadata.', 'ok');
   eraseBtn.disabled = false;
 }
 
@@ -409,7 +400,7 @@ eraseBtn.addEventListener('click', ()=>{
     a.click();
     a.remove();
     setTimeout(()=> URL.revokeObjectURL(url), 5000);
-    setStatus('Temizlendi ve indirildi.', 'ok');
+    setStatus('Erased and downloaded.', 'ok');
   }, 'image/png');
 });
 </script>
