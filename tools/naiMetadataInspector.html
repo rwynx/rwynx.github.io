@@ -72,6 +72,9 @@
   .status-msg{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text-dim); line-height:1.6; }
   .status-msg.error{ color:var(--pink); }
   .status-msg.ok{ color:var(--blue); }
+  /* small italic note(s) under the main status line — explains which fields got hidden because they were empty */
+  #notesMsg{ margin-top:6px; font-style:italic; opacity:.75; }
+  #notesMsg div{ margin-bottom:2px; }
 
   .btn-erase{
     font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:500; color:var(--text);
@@ -116,14 +119,15 @@
     <div>
       <div class="panel-title">NovelAI Metadata Inspector</div>
       <p class="status-msg" id="statusMsg">You upload a PNG, I read the metadata — everything runs in your browser, never sent to any server.</p>
+      <p class="status-msg" id="notesMsg" style="display:none;"></p>
     </div>
 
-    <div class="field-group">
+    <div class="field-group" id="basePromptGroup">
       <div class="field-head"><label>Base Prompt</label><button class="copy-btn" data-copy="basePrompt">Copy</button></div>
       <textarea id="basePrompt" readonly placeholder="—"></textarea>
     </div>
 
-    <div class="field-group">
+    <div class="field-group" id="negPromptGroup">
       <div class="field-head"><label>Negative / Undesired Prompt</label><button class="copy-btn" data-copy="negPrompt">Copy</button></div>
       <textarea id="negPrompt" readonly placeholder="—"></textarea>
     </div>
@@ -161,6 +165,9 @@
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 const statusMsg = document.getElementById('statusMsg');
+const notesMsg = document.getElementById('notesMsg');
+const basePromptGroup = document.getElementById('basePromptGroup');
+const negPromptGroup = document.getElementById('negPromptGroup');
 const basePromptEl = document.getElementById('basePrompt');
 const negPromptEl = document.getElementById('negPrompt');
 const charListEl = document.getElementById('charList');
@@ -292,24 +299,55 @@ function extractFields(comment){
   return {basePrompt, negPrompt, characters};
 }
 
+// each field only renders if it actually has content — lots of people leave character negative prompts
+// (and sometimes the base ones) empty, and an empty box just looked broken. anything skipped gets a short
+// note explaining why, listed under the main status line instead.
 function renderFields(fields, comment, outer){
-  basePromptEl.value = fields.basePrompt;
-  negPromptEl.value = fields.negPrompt;
+  const notes = [];
+
+  if(fields.basePrompt){
+    basePromptGroup.style.display = '';
+    basePromptEl.value = fields.basePrompt;
+  } else {
+    basePromptGroup.style.display = 'none';
+    notes.push("This image doesn't have a base prompt, therefore it is not displayed.");
+  }
+
+  if(fields.negPrompt){
+    negPromptGroup.style.display = '';
+    negPromptEl.value = fields.negPrompt;
+  } else {
+    negPromptGroup.style.display = 'none';
+    notes.push("This image doesn't have a negative prompt, therefore it is not displayed.");
+  }
 
   charListEl.innerHTML = '';
   if(fields.characters.length){
     fields.characters.forEach((c,i)=>{
+      const hasPrompt = !!c.prompt;
+      const hasNeg = !!c.negative;
+      if(!hasPrompt && !hasNeg) return; // this character slot had nothing at all, skip it entirely
+
       const block = document.createElement('div');
       block.className = 'field-group';
       block.style.padding = '10px 12px';
-      block.innerHTML = `
-        <div class="field-head"><label>Character ${i+1} — Prompt</label></div>
-        <textarea readonly style="min-height:80px;">${c.prompt}</textarea>
-        <div class="field-head" style="margin-top:8px;"><label>Character ${i+1} — Negative</label></div>
-        <textarea readonly style="min-height:56px;">${c.negative}</textarea>
-      `;
+      let html = '';
+
+      if(hasPrompt){
+        html += `<div class="field-head"><label>Character ${i+1} — Prompt</label></div><textarea readonly style="min-height:80px;">${c.prompt}</textarea>`;
+      } else {
+        notes.push(`Character ${i+1} doesn't have a prompt, therefore it is not displayed.`);
+      }
+      if(hasNeg){
+        html += `<div class="field-head" style="margin-top:${hasPrompt?'8px':'0'};"><label>Character ${i+1} — Negative</label></div><textarea readonly style="min-height:56px;">${c.negative}</textarea>`;
+      } else {
+        notes.push(`Character ${i+1} doesn't have a negative prompt, therefore it is not displayed.`);
+      }
+
+      block.innerHTML = html;
       charListEl.appendChild(block);
     });
+    if(!charListEl.children.length) charListEl.innerHTML = NO_CHAR_HTML;
   } else {
     charListEl.innerHTML = NO_CHAR_HTML;
   }
@@ -328,13 +366,25 @@ function renderFields(fields, comment, outer){
   } else {
     detailsGroup.style.display = 'none';
   }
+
+  if(notes.length){
+    notesMsg.innerHTML = notes.map(n => `<div>${n}</div>`).join('');
+    notesMsg.style.display = '';
+  } else {
+    notesMsg.textContent = '';
+    notesMsg.style.display = 'none';
+  }
 }
 
 function clearFields(){
   basePromptEl.value = '';
   negPromptEl.value = '';
+  basePromptGroup.style.display = '';
+  negPromptGroup.style.display = '';
   charListEl.innerHTML = NO_CHAR_HTML;
   detailsGroup.style.display = 'none';
+  notesMsg.textContent = '';
+  notesMsg.style.display = 'none';
 }
 
 function clearImage(){
