@@ -404,7 +404,7 @@ async function handleFile(file){
   const comment = outer.Comment;
   const fields = extractFields(comment);
   renderFields(fields, comment, outer);
-  setStatus('I read the metadata.', 'ok');
+  setStatus('I found the metadata.', 'ok');
 }
 
 eraseBtn.addEventListener('click', ()=>{
