@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NAI Metadata Inspector — Rwyn's Blog</title>
+<link rel="icon" type="image/png" href="../assets/img/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="../assets/css/site.css" rel="stylesheet">
+<style>
+  header.page-head{ position:relative; z-index:2; max-width:1100px; margin:0 auto; padding:6vh 6vw 2vh; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
+  header.page-head nav.main-nav ul{ gap:26px; }
+  .go-back-inline{ margin-bottom:4px; }
+  .go-back-inline a{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px; text-decoration:none; color:var(--text-dim); transition:color .3s ease; }
+  .go-back-inline a:hover{ color:var(--purple); }
+
+  /* ---- NovelAI metadata inspector: left = fields/controls, right = the uploaded image, sized to its own aspect ratio ---- */
+  .tools-wrap{ position:relative; z-index:2; max-width:1300px; margin:0 auto; display:flex; gap:34px; align-items:flex-start; padding:2vh 6vw 10vh; }
+  .tools-left{ flex:0 0 380px; display:flex; flex-direction:column; gap:18px; }
+
+  .tools-right-col{ flex:1; display:flex; flex-direction:column; align-items:center; gap:16px; min-width:0; }
+  .tools-right{
+    width:100%; min-height:70vh; border-radius:20px;
+    background:var(--card-bg); border:1px solid var(--card-border);
+    display:flex; align-items:center; justify-content:center;
+    position:relative; overflow:hidden; cursor:pointer;
+    transition:border-color .3s ease, background .3s ease, width .5s cubic-bezier(.16,1,.3,1), height .5s cubic-bezier(.16,1,.3,1);
+  }
+  .tools-right.drag-over{ border-color:var(--purple); background:rgba(155,109,255,.08); }
+  .tools-right img{ width:100%; height:100%; object-fit:contain; border-radius:14px; display:block; }
+  .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; }
+  .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
+
+  .image-actions{ display:flex; gap:10px; align-items:center; }
+  .icon-btn{
+    font-size:15px; line-height:1; color:var(--text-dim); background:transparent; border:1px solid var(--card-border);
+    border-radius:8px; padding:9px 12px; cursor:pointer; transition:color .3s ease, border-color .3s ease, background .3s ease;
+  }
+  .icon-btn:hover{ color:var(--text); border-color:var(--purple); background:rgba(155,109,255,.12); }
+
+  .panel-title{ font-size:12px; font-family:'JetBrains Mono',monospace; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px; }
+  .field-group{ background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:14px 16px; }
+  .field-group .field-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .field-group label{ font-size:11.5px; font-family:'JetBrains Mono',monospace; color:var(--text-dim); letter-spacing:.06em; text-transform:uppercase; }
+  .field-group textarea{
+    width:100%; min-height:160px; resize:vertical; background:rgba(0,0,0,.25); color:var(--text); border:1px solid var(--card-border);
+    border-radius:8px; padding:8px 10px; font-family:'JetBrains Mono',monospace; font-size:12.5px; line-height:1.5;
+  }
+  .copy-btn{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-dim); background:transparent; border:1px solid var(--card-border);
+    border-radius:6px; padding:3px 8px; cursor:pointer; transition:color .3s ease, border-color .3s ease;
+  }
+  .copy-btn:hover{ color:var(--text); border-color:var(--purple); }
+
+  .char-list{ display:flex; flex-direction:column; gap:12px; }
+  .no-char{ font-size:12.5px; color:var(--text-dim); font-family:'JetBrains Mono',monospace; opacity:.7; padding:6px 2px; }
+
+  .details-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; font-family:'JetBrains Mono',monospace; font-size:12px; }
+  .details-grid div b{ color:var(--text-dim); font-weight:500; margin-right:4px; }
+
+  .status-msg{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text-dim); line-height:1.6; }
+  .status-msg.error{ color:var(--pink); }
+  .status-msg.ok{ color:var(--blue); }
+
+  .btn-erase{
+    font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:500; color:var(--text);
+    border:1px solid rgba(255,110,199,.5); background:rgba(255,110,199,.08);
+    padding:12px 16px; border-radius:10px; cursor:pointer; text-align:center; flex:1;
+    transition:background .3s ease, border-color .3s ease;
+  }
+  .btn-erase:hover{ background:rgba(255,110,199,.2); border-color:var(--pink); }
+  .btn-erase:disabled{ opacity:.4; cursor:not-allowed; }
+
+  @media(max-width:900px){
+    .tools-wrap{ flex-direction:column-reverse; padding:2vh 6vw 8vh; }
+    .tools-left{ flex:1 1 auto; width:100%; }
+    .tools-right-col{ width:100%; }
+    .tools-right{ width:100%; min-height:50vh; }
+  }
+</style>
+</head>
+<body>
+
+<video class="bg-video" src="../assets/img/background/binary_rain.mp4" muted loop autoplay playsinline></video>
+<div class="bg-tint"></div>
+<canvas id="field"></canvas>
+<div class="cursor-glow" id="glow"></div>
+
+<header class="page-head">
+  <h1 class="page-title">NAI Metadata Inspector</h1>
+  <nav class="main-nav">
+    <ul>
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="../tools.html" class="active">Tools</a></li>
+      <li><a href="../mods.html">Mods</a></li>
+      <li><a href="../apps.html">Apps</a></li>
+      <li><a href="../index.html#contact">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="tools-wrap">
+  <div class="tools-left">
+    <div class="go-back-inline"><a href="../tools.html">← Go back</a></div>
+    <div>
+      <div class="panel-title">NovelAI Metadata Inspector</div>
+      <p class="status-msg" id="statusMsg">Upload a NovelAI PNG — metadata is read automatically. The image is never uploaded anywhere; everything is processed in your browser.</p>
+    </div>
+
+    <div class="field-group">
+      <div class="field-head"><label>Base Prompt</label><button class="copy-btn" data-copy="basePrompt">Copy</button></div>
+      <textarea id="basePrompt" readonly placeholder="—"></textarea>
+    </div>
+
+    <div class="field-group">
+      <div class="field-head"><label>Negative / Undesired Prompt</label><button class="copy-btn" data-copy="negPrompt">Copy</button></div>
+      <textarea id="negPrompt" readonly placeholder="—"></textarea>
+    </div>
+
+    <div class="field-group">
+      <div class="field-head"><label>Characters</label></div>
+      <div class="char-list" id="charList"><div class="no-char">No character found.</div></div>
+    </div>
+
+    <div class="field-group" id="detailsGroup" style="display:none;">
+      <div class="field-head"><label>Generation Details</label></div>
+      <div class="details-grid" id="detailsGrid"></div>
+    </div>
+  </div>
+
+  <div class="tools-right-col">
+    <div class="tools-right" id="dropZone">
+      <div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop a NovelAI PNG here</div>
+    </div>
+    <div class="image-actions" id="imageActions" style="display:none;">
+      <button class="btn-erase" id="eraseBtn">Erase Metadata</button>
+      <button class="icon-btn" id="clearBtn" title="Remove image">🗑️</button>
+      <button class="icon-btn" id="newImageBtn" title="Upload new image">🖼️</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept="image/png" style="display:none;">
+
+<script src="../assets/js/site.js"></script>
+<script>
+// ---------- NovelAI stealth-PNG metadata reader + full eraser ----------
+// everything below runs entirely client-side: the image is never uploaded anywhere, all decoding happens
+// in this browser tab via <canvas> + the File API.
+//
+// format reverse-engineered from NovelAI's own open-source nai_meta.py (github.com/NovelAI/novelai-image-metadata):
+// the hidden payload lives LSB-encoded in the PNG's alpha channel, read in COLUMN-MAJOR order (x outer
+// loop, y inner — NOT the row-major order canvases normally use), then packed 8 bits/byte MSB-first.
+// layout after that: 15-byte magic "stealth_pngcomp" -> 4-byte big-endian bit-length -> gzip-compressed JSON.
+// that JSON's "Comment" field is itself a JSON string holding the actual prompt/settings.
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const statusMsg = document.getElementById('statusMsg');
+const basePromptEl = document.getElementById('basePrompt');
+const negPromptEl = document.getElementById('negPrompt');
+const charListEl = document.getElementById('charList');
+const detailsGroup = document.getElementById('detailsGroup');
+const detailsGrid = document.getElementById('detailsGrid');
+const imageActions = document.getElementById('imageActions');
+const eraseBtn = document.getElementById('eraseBtn');
+const clearBtn = document.getElementById('clearBtn');
+const newImageBtn = document.getElementById('newImageBtn');
+
+const workCanvas = document.createElement('canvas');
+const ctx = workCanvas.getContext('2d', {willReadFrequently:true});
+let currentFileBase = 'image';
+let lastImgSize = null;
+
+// sizes the right-hand box to the actual image's aspect ratio, bounded within a sensible box — same
+// idea as the preview panel on the home page, so we don't get the squished/cropped look on odd ratios.
+function applyRightPanelAspect(size){
+  if(window.innerWidth <= 900 || !size){ dropZone.style.width=''; dropZone.style.height=''; dropZone.style.minHeight=''; return; }
+  const boundW = Math.min(window.innerWidth * 0.5, 900);
+  const boundH = Math.min(window.innerHeight * 0.75, 800);
+  const ratio = size.w / size.h;
+  let w, h;
+  if(ratio >= boundW / boundH){ w = boundW; h = boundW / ratio; } else { h = boundH; w = boundH * ratio; }
+  dropZone.style.width = w + 'px';
+  dropZone.style.height = h + 'px';
+  dropZone.style.minHeight = h + 'px';
+}
+window.addEventListener('resize', ()=> applyRightPanelAspect(lastImgSize));
+
+dropZone.addEventListener('click', ()=> fileInput.click());
+dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e=>{
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', ()=>{ if(fileInput.files[0]) handleFile(fileInput.files[0]); });
+newImageBtn.addEventListener('click', ()=> fileInput.click());
+clearBtn.addEventListener('click', clearImage);
+
+document.querySelectorAll('.copy-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const el = document.getElementById(btn.dataset.copy);
+    if(!el || !el.value) return;
+    navigator.clipboard.writeText(el.value);
+    const old = btn.textContent; btn.textContent = 'Copied!';
+    setTimeout(()=> btn.textContent = old, 1200);
+  });
+});
+
+function setStatus(msg, type){
+  statusMsg.textContent = msg;
+  statusMsg.className = 'status-msg' + (type ? ' '+type : '');
+}
+
+function loadImageEl(url){
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+    img.onload = ()=>resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+async function extractStealthPng(imageData, width, height){
+  const total = width*height;
+  const bits = new Uint8Array(total);
+  let i = 0;
+  for(let x=0; x<width; x++){
+    for(let y=0; y<height; y++){
+      bits[i++] = imageData.data[(y*width+x)*4 + 3] & 1;
+    }
+  }
+  const usableBits = Math.floor(total/8)*8;
+  const byteCount = usableBits/8;
+  const bytes = new Uint8Array(byteCount);
+  for(let b=0; b<byteCount; b++){
+    let v = 0;
+    for(let k=0; k<8; k++) v = (v<<1) | bits[b*8+k];
+    bytes[b] = v;
+  }
+
+  let pos = 0;
+  const next = n => { const s = bytes.slice(pos, pos+n); pos += n; return s; };
+
+  const magic = new TextDecoder('utf-8').decode(next(15));
+  if(magic !== 'stealth_pngcomp') throw new Error('no stealth metadata (magic mismatch)');
+
+  const lenBytes = next(4);
+  if(lenBytes.length !== 4) throw new Error('truncated length field');
+  const lenBits = lenBytes[0]*16777216 + (lenBytes[1]<<16) + (lenBytes[2]<<8) + lenBytes[3];
+  const payload = next(Math.floor(lenBits/8));
+
+  if(!window.DecompressionStream) throw new Error('this browser lacks DecompressionStream (gzip) support');
+  const ds = new DecompressionStream('gzip');
+  const stream = new Blob([payload]).stream().pipeThrough(ds);
+  const gunzipped = new Uint8Array(await new Response(stream).arrayBuffer());
+  const data = JSON.parse(new TextDecoder('utf-8').decode(gunzipped));
+
+  if(typeof data.Comment === 'string'){
+    try{ data.Comment = JSON.parse(data.Comment); } catch(e){ /* leave as raw string */ }
+  }
+  return data;
+}
+
+function parsePngTextChunks(buffer){
+  const view = new DataView(buffer);
+  const out = {};
+  let offset = 8;
+  while(offset + 8 <= buffer.byteLength){
+    const length = view.getUint32(offset); offset += 4;
+    const type = String.fromCharCode(view.getUint8(offset),view.getUint8(offset+1),view.getUint8(offset+2),view.getUint8(offset+3)); offset += 4;
+    if(type === 'tEXt'){
+      const bytes = new Uint8Array(buffer, offset, length);
+      const nul = bytes.indexOf(0);
+      if(nul !== -1){
+        const key = new TextDecoder('latin1').decode(bytes.slice(0,nul));
+        const val = new TextDecoder('latin1').decode(bytes.slice(nul+1));
+        out[key] = val;
+      }
+    }
+    offset += length + 4;
+    if(type === 'IEND') break;
+  }
+  return out;
+}
+
+function extractFields(comment){
+  const v4p = comment.v4_prompt && comment.v4_prompt.caption;
+  const v4n = comment.v4_negative_prompt && comment.v4_negative_prompt.caption;
+  const basePrompt = (v4p && v4p.base_caption) || comment.prompt || '';
+  const negPrompt = (v4n && v4n.base_caption) || comment.uc || '';
+  let characters = [];
+  const charCaps = v4p && v4p.char_captions;
+  if(Array.isArray(charCaps) && charCaps.length){
+    const negCaps = (v4n && v4n.char_captions) || [];
+    characters = charCaps.map((c,idx)=>({
+      prompt: c.char_caption || '',
+      negative: (negCaps[idx] && negCaps[idx].char_caption) || ''
+    }));
+  }
+  return {basePrompt, negPrompt, characters};
+}
+
+function renderFields(fields, comment, outer){
+  basePromptEl.value = fields.basePrompt;
+  negPromptEl.value = fields.negPrompt;
+
+  charListEl.innerHTML = '';
+  if(fields.characters.length){
+    fields.characters.forEach((c,i)=>{
+      const block = document.createElement('div');
+      block.className = 'field-group';
+      block.style.padding = '10px 12px';
+      block.innerHTML = `
+        <div class="field-head"><label>Character ${i+1} — Prompt</label></div>
+        <textarea readonly style="min-height:90px;">${c.prompt}</textarea>
+        <div class="field-head" style="margin-top:8px;"><label>Character ${i+1} — Negative</label></div>
+        <textarea readonly style="min-height:64px;">${c.negative}</textarea>
+      `;
+      charListEl.appendChild(block);
+    });
+  } else {
+    charListEl.innerHTML = '<div class="no-char">No character found.</div>';
+  }
+
+  const details = {
+    Model: (outer && outer.Source) || comment.model,
+    Sampler: comment.sampler,
+    Steps: comment.steps,
+    Seed: comment.seed,
+    Scale: comment.scale
+  };
+  const rows = Object.entries(details).filter(([,v]) => v !== undefined && v !== null && v !== '');
+  if(rows.length){
+    detailsGrid.innerHTML = rows.map(([k,v]) => `<div><b>${k}:</b>${v}</div>`).join('');
+    detailsGroup.style.display = '';
+  } else {
+    detailsGroup.style.display = 'none';
+  }
+}
+
+function clearFields(){
+  basePromptEl.value = '';
+  negPromptEl.value = '';
+  charListEl.innerHTML = '<div class="no-char">No character found.</div>';
+  detailsGroup.style.display = 'none';
+}
+
+function clearImage(){
+  lastImgSize = null;
+  applyRightPanelAspect(null);
+  dropZone.innerHTML = '<div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop a NovelAI PNG here</div>';
+  imageActions.style.display = 'none';
+  clearFields();
+  setStatus('Upload a NovelAI PNG — metadata is read automatically. The image is never uploaded anywhere; everything is processed in your browser.', '');
+  workCanvas.width = 0; workCanvas.height = 0;
+  currentFileBase = 'image';
+}
+
+async function handleFile(file){
+  if(!/png$/i.test(file.type) && !/\.png$/i.test(file.name)){
+    setStatus('Only PNG is supported (NovelAI doesn\'t embed metadata in JPEG).', 'error');
+    return;
+  }
+  currentFileBase = file.name.replace(/\.png$/i, '');
+  setStatus('Reading…');
+  clearFields();
+
+  const arrayBuffer = await file.arrayBuffer();
+  const objectUrl = URL.createObjectURL(file);
+  const img = await loadImageEl(objectUrl);
+
+  workCanvas.width = img.naturalWidth;
+  workCanvas.height = img.naturalHeight;
+  ctx.drawImage(img, 0, 0);
+
+  dropZone.innerHTML = '';
+  dropZone.appendChild(img);
+  img.style.width = '100%';
+  img.style.height = '100%';
+  img.style.objectFit = 'contain';
+  img.style.borderRadius = '14px';
+  img.style.display = 'block';
+
+  lastImgSize = {w: img.naturalWidth, h: img.naturalHeight};
+  applyRightPanelAspect(lastImgSize);
+  imageActions.style.display = 'flex';
+
+  let outer = null;
+  try{
+    const imageData = ctx.getImageData(0, 0, workCanvas.width, workCanvas.height);
+    outer = await extractStealthPng(imageData, workCanvas.width, workCanvas.height);
+  }catch(e){ /* fall through to the plain-chunk fallback below */ }
+
+  if(!outer){
+    try{
+      const texts = parsePngTextChunks(arrayBuffer);
+      if(texts.Comment){
+        outer = { Comment: JSON.parse(texts.Comment), Source: texts.Source, Title: texts.Title };
+      }
+    }catch(e){ /* still nothing */ }
+  }
+
+  if(!outer || !outer.Comment || typeof outer.Comment === 'string'){
+    setStatus('No NovelAI metadata found in this image.', 'error');
+    return;
+  }
+
+  const comment = outer.Comment;
+  const fields = extractFields(comment);
+  renderFields(fields, comment, outer);
+  setStatus('Metadata loaded.', 'ok');
+}
+
+eraseBtn.addEventListener('click', ()=>{
+  if(!workCanvas.width) return;
+  const imageData = ctx.getImageData(0, 0, workCanvas.width, workCanvas.height);
+  const d = imageData.data;
+  for(let i=3; i<d.length; i+=4) d[i] = 255;
+  ctx.putImageData(imageData, 0, 0);
+
+  workCanvas.toBlob(blob=>{
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = currentFileBase + '_clean.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=> URL.revokeObjectURL(url), 5000);
+    setStatus('Cleaned and downloaded.', 'ok');
+  }, 'image/png');
+});
+</script>
+</body>
+</html>

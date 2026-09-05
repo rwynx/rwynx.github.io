@@ -10,81 +10,45 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link href="assets/css/site.css" rel="stylesheet">
 <style>
-  header.page-head{
-    position:relative; z-index:2;
-    max-width:1100px; margin:0 auto; padding:6vh 6vw 2vh;
-    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px;
-  }
+  header.page-head{ position:relative; z-index:2; max-width:1100px; margin:0 auto; padding:6vh 6vw 2vh; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
   h1.page-title{ font-size:clamp(30px,4.5vw,42px); }
   header.page-head nav.main-nav ul{ gap:26px; }
 
-  .mods-wrap{
-    position:relative; z-index:2;
-    min-height:78vh;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px;
-    padding:4vh 6vw 8vh;
-  }
-  .mods-grid{
-    display:flex; gap:34px; flex-wrap:wrap; justify-content:center; align-items:stretch;
-    max-width:1200px;
-  }
+  .mods-wrap{ position:relative; z-index:2; min-height:78vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px; padding:4vh 6vw 8vh; }
+  .mods-grid{ display:flex; gap:34px; flex-wrap:wrap; justify-content:center; align-items:stretch; max-width:1200px; }
 
-  /* "← Go back" — sits above the card grid, a bit smaller than the page-title */
   .go-back a{
-    display:inline-flex; align-items:center; gap:8px;
-    font-family:'JetBrains Mono',monospace; font-weight:600;
-    font-size:clamp(18px,2.6vw,24px);
-    text-decoration:none;
-    background:linear-gradient(120deg,#fff 0%, var(--purple) 55%, var(--blue) 100%);
-    -webkit-background-clip:text; background-clip:text; color:transparent;
+    display:inline-flex; align-items:center; gap:8px; font-family:'JetBrains Mono',monospace; font-weight:600; font-size:clamp(18px,2.6vw,24px);
+    text-decoration:none; background:linear-gradient(120deg,#fff 0%, var(--purple) 55%, var(--blue) 100%); -webkit-background-clip:text; background-clip:text; color:transparent;
     opacity:.85; transition:opacity .3s ease, transform .3s ease;
   }
   .go-back a:hover{ opacity:1; transform:translateX(-4px); }
 
   .big-card{
-    position:relative;
-    width:min(30vw, 340px);
-    aspect-ratio:3/4;
-    border-radius:20px; overflow:hidden;
+    position:relative; width:min(30vw, 340px); aspect-ratio:3/4; border-radius:20px; overflow:hidden;
     background:var(--card-bg); border:1px solid var(--card-border);
     transition:transform .5s cubic-bezier(.16,1,.3,1), box-shadow .5s ease, border-color .5s ease;
   }
-  .big-card:hover{
-    transform:translateY(-6px) scale(1.03);
-    box-shadow:0 30px 70px -25px rgba(155,109,255,.5);
-    border-color:rgba(155,109,255,.55);
-  }
+  .big-card.clickable{ cursor:pointer; }
+  .big-card:hover{ transform:translateY(-6px) scale(1.03); box-shadow:0 30px 70px -25px rgba(155,109,255,.5); border-color:rgba(155,109,255,.55); }
   .big-card.wip{ opacity:.62; }
   .big-card.wip:hover{ transform:none; box-shadow:none; border-color:var(--card-border); }
 
-  .big-card .slide{
-    position:absolute; inset:0; opacity:0; transition:opacity 1.2s ease;
-    background-size:cover; background-position:center;
-  }
+  .big-card .slide{ position:absolute; inset:0; opacity:0; transition:opacity 1.2s ease; background-size:cover; background-position:center; }
   .big-card .slide.on{opacity:1;}
-  .big-card .shade{
-    position:absolute; inset:0; z-index:1;
-    background:linear-gradient(to top, rgba(5,3,15,.92) 0%, rgba(5,3,15,.1) 55%, transparent 100%);
-  }
+  .big-card .shade{ position:absolute; inset:0; z-index:1; background:linear-gradient(to top, rgba(5,3,15,.92) 0%, rgba(5,3,15,.1) 55%, transparent 100%); }
   .big-card .badge{
-    position:absolute; top:14px; left:14px; z-index:2;
-    font-size:10px; font-family:'JetBrains Mono',monospace; letter-spacing:.08em;
-    text-transform:uppercase; padding:4px 9px; border-radius:6px;
-    background:rgba(0,0,0,.45); color:var(--text-dim); border:1px solid var(--card-border);
+    position:absolute; top:14px; left:14px; z-index:2; font-size:10px; font-family:'JetBrains Mono',monospace; letter-spacing:.08em;
+    text-transform:uppercase; padding:4px 9px; border-radius:6px; background:rgba(0,0,0,.45); color:var(--text-dim); border:1px solid var(--card-border);
   }
   .big-card .meta{ position:absolute; left:0; right:0; bottom:0; z-index:2; padding:20px; }
-  .big-card .tag{
-    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--blue);
-    letter-spacing:.08em; text-transform:uppercase; display:block; margin-bottom:6px;
-  }
+  .big-card .tag{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--blue); letter-spacing:.08em; text-transform:uppercase; display:block; margin-bottom:6px; }
   .big-card .name{ font-size:22px; font-weight:600; margin-bottom:12px; }
   .big-card .links{ display:flex; gap:10px; flex-wrap:wrap; }
   @keyframes pillBounce{ 0%{transform:scale(1);} 45%{transform:scale(1.12);} 75%{transform:scale(.97);} 100%{transform:scale(1);} }
   .big-card .links a{
-    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text);
-    border:1px solid rgba(155,109,255,.4); padding:6px 11px; border-radius:8px;
-    text-decoration:none; transition:background .3s ease, border-color .3s ease, transform .25s ease-out;
-    position:relative; z-index:3;
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text); border:1px solid rgba(155,109,255,.4); padding:6px 11px; border-radius:8px;
+    text-decoration:none; transition:background .3s ease, border-color .3s ease, transform .25s ease-out; position:relative; z-index:3;
   }
   .big-card .links a:hover{ background:rgba(155,109,255,.18); border-color:var(--purple); animation:pillBounce .45s cubic-bezier(.34,1.56,.64,1); }
   .big-card .dots{ position:absolute; top:14px; right:14px; display:flex; gap:5px; z-index:3; opacity:0; transition:opacity .3s ease .1s; }
@@ -109,7 +73,7 @@
       <li><a href="index.html">Home</a></li>
       <li><a href="tools.html">Tools</a></li>
       <li><a href="mods.html" class="active">Mods</a></li>
-      <li><a href="index.html#updates">Updates</a></li>
+      <li><a href="apps.html">Apps</a></li>
       <li><a href="index.html#contact">Contact</a></li>
     </ul>
   </nav>
@@ -123,11 +87,13 @@
 <script src="assets/js/site.js"></script>
 <script>
 // Night City screenshot list lives in assets/js/site.js (NIGHT_CITY_IMAGES) — edit it once, both pages update.
+// pageUrl = the mod now has its own detail page; clicking the card (but not its store links) navigates there.
 const mods = [
   {
     tag:'northstar · titanfall 2', name:'Night City', wip:false,
     images: NIGHT_CITY_IMAGES,
     fallbackHue:'320,70%,58%',
+    pageUrl:'mods/nightCity.html',
     links:[
       {label:'Thunderstore ↗', url:'https://thunderstore.io/c/northstar/p/Rwyn/Night_City'},
       {label:'NexusMods ↗', url:'https://www.nexusmods.com/titanfall2/mods/34'},
@@ -142,7 +108,7 @@ const grid = document.getElementById('modsGrid');
 
 mods.forEach((mod, i)=>{
   const card = document.createElement('div');
-  card.className = 'big-card' + (mod.wip ? ' wip' : '');
+  card.className = 'big-card' + (mod.wip ? ' wip' : '') + (mod.pageUrl ? ' clickable' : '');
 
   if(mod.wip){
     card.innerHTML = `
@@ -179,10 +145,17 @@ mods.forEach((mod, i)=>{
   `;
   grid.appendChild(card);
 
+  // clicking the card navigates to its detail page, unless the click landed on one of the store links
+  if(mod.pageUrl){
+    card.addEventListener('click', e=>{
+      if(e.target.closest('.links a')) return;
+      window.location.href = mod.pageUrl;
+    });
+  }
+
   const slides = card.querySelectorAll('.slide');
   const dots = card.querySelectorAll('.dots span');
 
-  // auto-cycle starts right away with placeholders; real screenshots swap in individually as each finishes loading
   let idx = 0;
   setInterval(()=>{
     slides[idx].classList.remove('on'); dots[idx].classList.remove('on');

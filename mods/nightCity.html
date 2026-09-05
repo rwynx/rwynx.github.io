@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Night City — Rwyn's Blog</title>
+<link rel="icon" type="image/png" href="../assets/img/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="../assets/css/site.css" rel="stylesheet">
+<style>
+  header.page-head{ position:relative; z-index:2; max-width:1100px; margin:0 auto; padding:6vh 6vw 2vh; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
+  header.page-head nav.main-nav ul{ gap:26px; }
+
+  .detail-wrap{ position:relative; z-index:2; max-width:760px; margin:0 auto; padding:2vh 6vw 12vh; }
+  .go-back a{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:14px; text-decoration:none; color:var(--text-dim); transition:color .3s ease; }
+  .go-back a:hover{ color:var(--purple); }
+  .mod-title{ font-size:clamp(28px,4vw,40px); margin:10px 0 4px; }
+  .mod-sub{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text-dim); margin-bottom:20px; }
+
+  .pill-links{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:34px; }
+  @keyframes pillBounce{ 0%{transform:scale(1);} 45%{transform:scale(1.12);} 75%{transform:scale(.97);} 100%{transform:scale(1);} }
+  .pill-links a{
+    font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text); border:1px solid rgba(155,109,255,.4); padding:8px 14px; border-radius:9px;
+    text-decoration:none; transition:background .3s ease, border-color .3s ease, transform .25s ease-out;
+  }
+  .pill-links a:hover{ background:rgba(155,109,255,.18); border-color:var(--purple); animation:pillBounce .45s cubic-bezier(.34,1.56,.64,1); }
+
+  /* ---- same auto-cycling slideshow + hover-lightbox as the home page, just centered in the page flow instead of fixed ---- */
+  .preview-wrap-static{ position:relative; display:flex; flex-direction:column; align-items:center; gap:16px; margin-bottom:46px; }
+  .preview-panel{
+    position:relative; width:min(60vw, 700px); height:min(60vh, 460px); border-radius:20px; background:rgba(15,10,30,0.35);
+    backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); border:2px solid rgba(155,109,255,.30);
+    box-shadow:0 0 0 1px rgba(79,195,255,.12), 0 0 170px -8px rgba(155,109,255,.5); overflow:hidden; cursor:pointer;
+    transition:width .5s cubic-bezier(.16,1,.3,1), height .5s cubic-bezier(.16,1,.3,1);
+  }
+  .preview-panel .pv-slide{ position:absolute; inset:0; opacity:0; transition:opacity 1.1s ease; background-size:contain; background-repeat:no-repeat; background-position:center; }
+  .preview-panel .pv-slide.on{opacity:1;}
+  .preview-caption{ display:flex; align-items:center; gap:20px; }
+  .preview-caption .nav-arrow{
+    font-family:'JetBrains Mono',monospace; font-size:20px; line-height:1; color:#fff; text-shadow:0 0 8px rgba(255,255,255,.85), 0 0 20px rgba(255,255,255,.4);
+    opacity:.7; cursor:pointer; user-select:none; transition:opacity .3s ease, text-shadow .3s ease;
+  }
+  .preview-caption .nav-arrow:hover{ opacity:1; text-shadow:0 0 10px #fff, 0 0 28px rgba(255,255,255,.75); }
+  .preview-caption .caption-text{
+    font-family:'JetBrains Mono',monospace; font-size:12.5px; letter-spacing:.14em; text-transform:uppercase; color:#fff;
+    text-shadow:0 0 8px rgba(255,255,255,.8), 0 0 22px rgba(255,255,255,.35); min-width:1px; text-align:center;
+  }
+  @media(max-width:900px){ .preview-panel{width:100%; height:52vh;} }
+
+  .lightbox-overlay{
+    position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center; background:rgba(5,3,15,.35);
+    backdrop-filter:blur(0px); -webkit-backdrop-filter:blur(0px); opacity:0; pointer-events:none;
+    transition:opacity .4s ease, backdrop-filter .4s ease, -webkit-backdrop-filter .4s ease;
+  }
+  .lightbox-overlay.open{ opacity:1; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+  .lightbox-img{
+    width:min(80vw, 1280px); aspect-ratio:16/9; max-height:80vh; background-size:contain; background-position:center; background-repeat:no-repeat;
+    border-radius:16px; box-shadow:0 0 140px -20px rgba(155,109,255,.55); transform:scale(.94); transition:transform .4s ease;
+  }
+  .lightbox-overlay.open .lightbox-img{ transform:scale(1); }
+
+  .article h2{ font-size:20px; margin:34px 0 12px; }
+  .article h3{ font-size:15px; color:var(--text-dim); margin:22px 0 8px; text-transform:uppercase; letter-spacing:.06em; font-family:'JetBrains Mono',monospace; font-weight:500; }
+  .article p{ font-size:14.5px; line-height:1.75; color:var(--text-dim); margin-bottom:12px; }
+  .article p a, .article li a{ color:var(--blue); }
+  .article ul{ margin:0 0 12px; padding-left:20px; }
+  .article li{ font-size:14px; line-height:1.7; color:var(--text-dim); margin-bottom:6px; }
+  .article table{ width:100%; border-collapse:collapse; font-size:12.5px; margin-bottom:20px; }
+  .article th, .article td{ border:1px solid var(--card-border); padding:8px 10px; text-align:left; vertical-align:top; }
+  .article th{ color:var(--text); font-family:'JetBrains Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+  .article td{ color:var(--text-dim); }
+  .article code{ background:rgba(0,0,0,.3); padding:1px 5px; border-radius:4px; font-size:12px; }
+</style>
+</head>
+<body>
+
+<video class="bg-video" src="../assets/img/background/binary_rain.mp4" muted loop autoplay playsinline></video>
+<div class="bg-tint"></div>
+<canvas id="field"></canvas>
+<div class="cursor-glow" id="glow"></div>
+
+<header class="page-head">
+  <h1 class="page-title">Night City</h1>
+  <nav class="main-nav">
+    <ul>
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="../tools.html">Tools</a></li>
+      <li><a href="../mods.html" class="active">Mods</a></li>
+      <li><a href="../apps.html">Apps</a></li>
+      <li><a href="../index.html#contact">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="detail-wrap">
+  <div class="go-back"><a href="../mods.html">← Go back</a></div>
+  <h2 class="mod-title">Night City</h2>
+  <div class="mod-sub">northstar · titanfall 2 — v3.5 Final</div>
+
+  <div class="pill-links">
+    <a href="https://thunderstore.io/c/northstar/p/Rwyn/Night_City" target="_blank">Thunderstore ↗</a>
+    <a href="https://www.nexusmods.com/titanfall2/mods/34" target="_blank">Nexus Mods ↗</a>
+    <a href="https://modworkshop.net/mod/54379" target="_blank">Modworkshop ↗</a>
+  </div>
+
+  <div class="preview-wrap-static">
+    <div class="preview-panel" id="previewPanel"></div>
+    <div class="preview-caption">
+      <span class="nav-arrow" id="pvPrev">‹</span>
+      <span class="caption-text" id="pvCaption">Night City Preview</span>
+      <span class="nav-arrow" id="pvNext">›</span>
+    </div>
+  </div>
+
+  <div class="article">
+    <h2>What is it?</h2>
+    <p>Night City mod is a visual-only mod for Angel City map, adds a brand new skybox, makes the map night time and replaces vanilla Angel City's materials with Cyberpunk 2077 (Night City) themed adverts, such as billboards, posters, paintings etc.</p>
+    <p>The bright trees you see in the preview images are part of <a href="https://northstar.thunderstore.io/package/S2Mods/GlitchOverhaul/" target="_blank">S2ymi's GlitchOverhaul</a> mod. My man didn't let me use them in this package so I strongly recommend you to download it as well because those trees really fit well with this mod.</p>
+
+    <h3>This zip contains</h3>
+    <ul>
+      <li>Night City mod itself</li>
+      <li>Custom space themed skybox</li>
+      <li>Custom mod that removes the sun, fog and smoke from the map</li>
+      <li>Custom mod that removes GodRays from the map</li>
+      <li>Custom Loadscreen image for Night City</li>
+      <li>Custom lighting for Night City (only works for Angel City, other maps will use the vanilla light)</li>
+    </ul>
+
+    <h3>Additional info and support</h3>
+    <ul>
+      <li>Some materials modified with this mod are shared assets. So some of them will be visible on other maps as well. (No, there's nothing I can do about it.)</li>
+      <li>The only known issue so far is the flashing &amp; flickering texture thing especially on metal surfaces. If you encounter this after installing this mod, change your "Model Draw Distance" setting to "Normal" or change your "Adaptive Resolution FPS Target" to 0 (zero) and enable "Anti-Aliasing", it helps.</li>
+    </ul>
+
+    <h2>Sources &amp; Credits</h2>
+    <ul>
+      <li>Amazing DVa art by <a href="https://www.artstation.com/yoolie" target="_blank">Ulyses Bain (now Yoolie) on ArtStation</a></li>
+      <li>Watson Whore &amp; Abydos King Size &amp; Sasha Devon &amp; Sojasil Machistador — Cyberpunk 2077 in-game ads by <a href="https://www.artstation.com/lukepoller" target="_blank">Luke Poller</a></li>
+      <li>"Drugs Don't Work" by <a href="https://www.reddit.com/r/fakealbumcovers/comments/8yr59u/crycrycry_drugs_dont_work" target="_blank">unknown — found on Reddit</a></li>
+      <li>I ripped the rest directly from Cyberpunk 2077 with Wolvenkit (an open-source modding tool for Cyberpunk 2077) OR made myself</li>
+    </ul>
+
+    <h2>Release History</h2>
+    <table>
+      <tr><th>Version</th><th>Update description</th></tr>
+      <tr><td>3.5.1</td><td>No visual change. Thunderstore preview images replaced and mod description updated.</td></tr>
+      <tr><td>3.5.0</td><td>GodRays removed from the map, finally, thanks to S2ymi. Considered final — a few materials could still be edited but I don't want to spoil the collective theme by going "too far".</td></tr>
+      <tr><td>3.0.0</td><td>Fixed all textures that were causing issues, replaced a few things that didn't fully satisfy me. Replaced the Loadscreen image based on player feedback.</td></tr>
+      <tr><td>2.5.0</td><td>Custom space themed skybox added. Sun, fog and smoke removed. Now night time. Stepbro Brewing Co. ad replaced with "MOORE! BODY WITHOUT LIMITS". "Hard as Rock, Hard as Fuck" ad added. UpMart logo recolored pink-violet.</td></tr>
+      <tr><td>2.0.0</td><td>Remaining Stepbro Brewing Co. ads replaced with "LEGALIZE NUCLEAR" propaganda. Several other billboard/poster swaps and censoring touches, plus a deprecated mod warning added.</td></tr>
+      <tr><td>1.3.6</td><td>No mod changes — Thunderstore description edited and a "corrupted installation detected" warning added for Mod Manager users.</td></tr>
+      <tr><td>1.2.5</td><td>AngelCity banners replaced with proper cyberpunk-themed images (previously temporary placeholders). Fixed some overly bright DXT1 images.</td></tr>
+      <tr><td>1.2.0</td><td>Bawdy Dog ad replaced with Mr. Stud ad. Broken domestic figure removed. New preview images added.</td></tr>
+      <tr><td>1.0.5</td><td>Broken graffiti replaced again.</td></tr>
+      <tr><td>1.0.2</td><td>File names and Thunderstore description updated.</td></tr>
+      <tr><td>1.0.0</td><td>First Release.</td></tr>
+    </table>
+
+    <h2>Find me</h2>
+    <p><a href="https://steamcommunity.com/id/rwynx/" target="_blank">Steam Profile</a> · <a href="https://discordapp.com/users/296358394355253258" target="_blank">Discord Profile</a></p>
+  </div>
+</div>
+
+<div class="lightbox-overlay" id="lightboxOverlay">
+  <div class="lightbox-img" id="lightboxImg"></div>
+</div>
+
+<script src="../assets/js/site.js"></script>
+<script>
+// identical slideshow logic to index.html's home-page preview panel, just not position:fixed here.
+const SLIDE_SECONDS = 2;
+(function initSlideshow(){
+  const panel = document.getElementById('previewPanel');
+  const lightboxOverlay = document.getElementById('lightboxOverlay');
+  const lightboxImg = document.getElementById('lightboxImg');
+  const prevArrow = document.getElementById('pvPrev');
+  const nextArrow = document.getElementById('pvNext');
+
+  const naturalSizes = new Array(NIGHT_CITY_IMAGES.length).fill(null);
+
+  function applyPanelAspect(size){
+    if(window.innerWidth <= 900) return;
+    const w0 = size ? size.w : 16, h0 = size ? size.h : 9;
+    const boundW = Math.min(window.innerWidth * 0.5, 700);
+    const boundH = Math.min(window.innerHeight * 0.6, 460);
+    const ratio = w0 / h0;
+    let w, h;
+    if(ratio >= boundW / boundH){ w = boundW; h = boundW / ratio; } else { h = boundH; w = boundH * ratio; }
+    panel.style.width = w + 'px';
+    panel.style.height = h + 'px';
+  }
+  applyPanelAspect(null);
+
+  NIGHT_CITY_IMAGES.forEach((src, s)=>{
+    const el = document.createElement('div');
+    el.className = 'pv-slide' + (s===0 ? ' on' : '');
+    const h1 = 260 + s*24;
+    el.style.backgroundImage = `linear-gradient(155deg, hsl(${h1},65%,55%) 0%, hsl(${h1+40},65%,55%) 100%)`;
+    panel.appendChild(el);
+
+    const img = new Image();
+    img.onload = ()=>{
+      el.style.backgroundImage = `url('${src}')`;
+      naturalSizes[s] = {w: img.naturalWidth, h: img.naturalHeight};
+      if(s === idx) applyPanelAspect(naturalSizes[s]);
+      if(slides[idx] === el) syncLightbox();
+    };
+    img.src = src;
+  });
+
+  const slides = panel.querySelectorAll('.pv-slide');
+  if(slides.length < 2) return;
+
+  let idx = 0;
+  let cycleInterval = null;
+
+  function syncLightbox(){
+    lightboxImg.style.backgroundImage = NIGHT_CITY_FULLRES_READY[idx]
+      ? `url('${NIGHT_CITY_IMAGES_FULLRES[idx]}')`
+      : slides[idx].style.backgroundImage;
+  }
+
+  function goTo(newIdx){
+    slides[idx].classList.remove('on');
+    idx = (newIdx + slides.length) % slides.length;
+    slides[idx].classList.add('on');
+    applyPanelAspect(naturalSizes[idx]);
+    syncLightbox();
+  }
+
+  function startAutoCycle(){
+    clearInterval(cycleInterval);
+    cycleInterval = setInterval(()=> goTo(idx+1), SLIDE_SECONDS * 1000);
+  }
+  startAutoCycle();
+  syncLightbox();
+
+  window.addEventListener('resize', ()=> applyPanelAspect(naturalSizes[idx]));
+  prevArrow.addEventListener('click', ()=>{ goTo(idx-1); startAutoCycle(); });
+  nextArrow.addEventListener('click', ()=>{ goTo(idx+1); startAutoCycle(); });
+
+  document.addEventListener('nightcity-fullres-ready', e=>{
+    if(e.detail.index === idx) syncLightbox();
+  });
+
+  panel.addEventListener('mouseenter', ()=> lightboxOverlay.classList.add('open'));
+  panel.addEventListener('mouseleave', ()=> lightboxOverlay.classList.remove('open'));
+})();
+</script>
+</body>
+</html>

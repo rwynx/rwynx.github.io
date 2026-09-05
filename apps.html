@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tools — Rwyn's Blog</title>
+<title>Apps — Rwyn's Blog</title>
 <link rel="icon" type="image/png" href="assets/img/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,7 +16,6 @@
   .tools-landing-wrap{ position:relative; z-index:2; min-height:78vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px; padding:4vh 6vw 8vh; }
   .tools-landing-grid{ display:flex; gap:34px; flex-wrap:wrap; justify-content:center; align-items:stretch; max-width:1300px; }
 
-  /* wider than mods.html's .big-card on purpose — these are utility cards, not screenshot cards */
   .tool-card{
     position:relative; width:min(34vw, 420px); min-height:280px; border-radius:20px; padding:32px 28px;
     background:var(--card-bg); border:1px solid var(--card-border); display:flex; flex-direction:column; gap:14px;
@@ -42,13 +41,13 @@
 <div class="cursor-glow" id="glow"></div>
 
 <header class="page-head">
-  <h1 class="page-title">Tools</h1>
+  <h1 class="page-title">Apps</h1>
   <nav class="main-nav">
     <ul>
       <li><a href="index.html">Home</a></li>
-      <li><a href="tools.html" class="active">Tools</a></li>
+      <li><a href="tools.html">Tools</a></li>
       <li><a href="mods.html">Mods</a></li>
-      <li><a href="apps.html">Apps</a></li>
+      <li><a href="apps.html" class="active">Apps</a></li>
       <li><a href="index.html#contact">Contact</a></li>
     </ul>
   </nav>
@@ -56,23 +55,19 @@
 
 <div class="tools-landing-wrap">
   <div class="tools-landing-grid">
-    <a class="tool-card" href="tools/naiMetadataInspector.html">
-      <div class="tool-icon">🔍</div>
-      <span class="tool-tag">live</span>
-      <div class="tool-name">NAI Metadata Inspector</div>
-      <div class="tool-desc">Read and erase NovelAI generation metadata (prompts, characters, seed) from a PNG — entirely client-side, nothing is uploaded anywhere.</div>
-    </a>
+    <!-- icon path is a placeholder — drop the real icon at assets/img/resources/rwx-diary.png and it'll pick it up automatically, falls back to an emoji until then -->
     <div class="tool-card wip">
-      <div class="tool-icon">🎨</div>
+      <img src="assets/img/resources/rwx-diary.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'📓'}))">
       <span class="tool-tag">wip</span>
-      <div class="tool-name">Palette Extractor</div>
-      <div class="tool-desc">Pull a color palette out of any image. Not built yet.</div>
+      <div class="tool-name">RWX Diary</div>
+      <div class="tool-desc">A journal app, ported from an old CLI tool I used to run locally.</div>
     </div>
+    <!-- same placeholder pattern — drop assets/img/resources/rwx-bot.png when ready -->
     <div class="tool-card wip">
-      <div class="tool-icon">🗂️</div>
+      <img src="assets/img/resources/rwx-bot.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'🤖'}))">
       <span class="tool-tag">wip</span>
-      <div class="tool-name">Batch Renamer</div>
-      <div class="tool-desc">Bulk-rename and re-number screenshot batches. Not built yet.</div>
+      <div class="tool-name">RWX Bot</div>
+      <div class="tool-desc">A multi-purpose Discord bot I wrote.</div>
     </div>
   </div>
 </div>
