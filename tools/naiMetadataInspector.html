@@ -22,15 +22,18 @@
   .tools-left{ flex:0 0 460px; display:flex; flex-direction:column; gap:18px; }
 
   .tools-right-col{ flex:1; display:flex; flex-direction:column; align-items:center; gap:16px; min-width:0; }
+  /* fixed square box on purpose — letting it size to the image's own aspect ratio kept causing landscape
+     images to overflow past the box into the field-groups next to it. a constant square with object-fit:contain
+     always leaves breathing room on the short axis, no matter what shape gets uploaded. */
   .tools-right{
-    width:100%; min-height:70vh; border-radius:20px;
+    width:min(60vw, 768px); aspect-ratio:1/1; border-radius:20px;
     background:var(--card-bg); border:1px solid var(--card-border);
     display:flex; align-items:center; justify-content:center;
     position:relative; overflow:hidden; cursor:pointer;
-    transition:border-color .3s ease, background .3s ease, width .5s cubic-bezier(.16,1,.3,1), height .5s cubic-bezier(.16,1,.3,1);
+    transition:border-color .3s ease, background .3s ease;
   }
   .tools-right.drag-over{ border-color:var(--purple); background:rgba(155,109,255,.08); }
-  .tools-right img{ width:100%; height:100%; object-fit:contain; border-radius:14px; display:block; }
+  .tools-right img{ max-width:100%; max-height:100%; object-fit:contain; border-radius:14px; display:block; }
   .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; }
   .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
 
@@ -80,7 +83,7 @@
     .tools-wrap{ flex-direction:column-reverse; padding:2vh 6vw 8vh; }
     .tools-left{ flex:1 1 auto; width:100%; }
     .tools-right-col{ width:100%; }
-    .tools-right{ width:100%; min-height:50vh; }
+    .tools-right{ width:100%; max-width:none; }
   }
 </style>
 </head>
@@ -168,23 +171,8 @@ const newImageBtn = document.getElementById('newImageBtn');
 const workCanvas = document.createElement('canvas');
 const ctx = workCanvas.getContext('2d', {willReadFrequently:true});
 let currentFileBase = 'image';
-let lastImgSize = null;
 
 const NO_CHAR_HTML = '<div class="field-group no-char-box"><div class="no-char">NO CHARACTER FOUND</div></div>';
-
-// to keep the image canvas same as image itself, dont touch i,t!!1
-function applyRightPanelAspect(size){
-  if(window.innerWidth <= 900 || !size){ dropZone.style.width=''; dropZone.style.height=''; dropZone.style.minHeight=''; return; }
-  const boundW = Math.min(window.innerWidth * 0.42, 850);
-  const boundH = Math.min(window.innerHeight * 0.75, 800);
-  const ratio = size.w / size.h;
-  let w, h;
-  if(ratio >= boundW / boundH){ w = boundW; h = boundW / ratio; } else { h = boundH; w = boundH * ratio; }
-  dropZone.style.width = w + 'px';
-  dropZone.style.height = h + 'px';
-  dropZone.style.minHeight = h + 'px';
-}
-window.addEventListener('resize', ()=> applyRightPanelAspect(lastImgSize));
 
 dropZone.addEventListener('click', ()=> fileInput.click());
 dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
@@ -347,8 +335,6 @@ function clearFields(){
 }
 
 function clearImage(){
-  lastImgSize = null;
-  applyRightPanelAspect(null);
   dropZone.innerHTML = '<div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop a NovelAI PNG here</div>';
   imageActions.style.display = 'none';
   clearFields();
@@ -376,14 +362,12 @@ async function handleFile(file){
 
   dropZone.innerHTML = '';
   dropZone.appendChild(img);
-  img.style.width = '100%';
-  img.style.height = '100%';
+  img.style.maxWidth = '100%';
+  img.style.maxHeight = '100%';
   img.style.objectFit = 'contain';
   img.style.borderRadius = '14px';
   img.style.display = 'block';
 
-  lastImgSize = {w: img.naturalWidth, h: img.naturalHeight};
-  applyRightPanelAspect(lastImgSize);
   imageActions.style.display = 'flex';
 
   let outer = null;
