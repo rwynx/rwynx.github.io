@@ -12,6 +12,9 @@
 <style>
   header.page-head{ position:relative; z-index:2; max-width:1100px; margin:0 auto; padding:6vh 6vw 2vh; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
   header.page-head nav.main-nav ul{ gap:26px; }
+  .go-back-inline{ position:relative; z-index:2; max-width:1300px; margin:0 auto; padding:0 6vw; }
+  .go-back-inline a{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px; text-decoration:none; color:var(--text-dim); transition:color .3s ease; }
+  .go-back-inline a:hover{ color:var(--purple); }
 
   .tools-landing-wrap{ position:relative; z-index:2; min-height:78vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px; padding:4vh 6vw 8vh; }
   .tools-landing-grid{ display:flex; gap:34px; flex-wrap:wrap; justify-content:center; align-items:stretch; max-width:1300px; }
@@ -54,22 +57,25 @@
   </nav>
 </header>
 
+<div class="go-back-inline"><a href="index.html">← Go back</a></div>
+
 <div class="tools-landing-wrap">
   <div class="tools-landing-grid">
+    <!-- icon path placeholders — drop matching pngs into assets/img/resources and they'll pick up automatically, emoji fallback until then -->
     <a class="tool-card" href="tools/naiMetadataInspector.html">
-      <div class="tool-icon">🔍</div>
+      <img src="assets/img/resources/nai-metadata-inspector.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'🔍'}))">
       <span class="tool-tag">live</span>
       <div class="tool-name">NAI Metadata Inspector</div>
       <div class="tool-desc">You upload a PNG, I read the metadata — everything runs in your browser, never sent to any server.</div>
     </a>
     <div class="tool-card wip">
-      <div class="tool-icon">🎨</div>
+      <img src="assets/img/resources/palette-extractor.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'🎨'}))">
       <span class="tool-tag">wip</span>
       <div class="tool-name">RWX Palette Extractor</div>
       <div class="tool-desc">Pull a color palette out of any image. Not implemented yet.</div>
     </div>
     <div class="tool-card wip">
-      <div class="tool-icon">🗂️</div>
+      <img src="assets/img/resources/batch-renamer.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'🗂️'}))">
       <span class="tool-tag">wip</span>
       <div class="tool-name">RWX Batch Renamer</div>
       <div class="tool-desc">Bulk-rename and re-number screenshot batches. Good for NAI batch images. Not implemented yet.</div>

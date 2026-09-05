@@ -16,9 +16,10 @@
   .go-back-inline a{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px; text-decoration:none; color:var(--text-dim); transition:color .3s ease; }
   .go-back-inline a:hover{ color:var(--purple); }
 
-  /* ---- NovelAI metadata inspector: left = fields/controls, right = the uploaded image, sized to its own aspect ratio ---- */
+  /* ---- NovelAI metadata inspector: left = fields/controls (widened so long prompts wrap horizontally
+     instead of needing constant vertical scrolling), right = the uploaded image, sized to its own aspect ratio ---- */
   .tools-wrap{ position:relative; z-index:2; max-width:1300px; margin:0 auto; display:flex; gap:34px; align-items:flex-start; padding:2vh 6vw 10vh; }
-  .tools-left{ flex:0 0 380px; display:flex; flex-direction:column; gap:18px; }
+  .tools-left{ flex:0 0 460px; display:flex; flex-direction:column; gap:18px; }
 
   .tools-right-col{ flex:1; display:flex; flex-direction:column; align-items:center; gap:16px; min-width:0; }
   .tools-right{
@@ -33,7 +34,8 @@
   .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; }
   .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
 
-  .image-actions{ display:flex; gap:10px; align-items:center; }
+  /* action bar sits ABOVE the preview area, per the layout mockup */
+  .image-actions{ display:flex; gap:10px; align-items:center; align-self:flex-end; }
   .icon-btn{
     font-size:15px; line-height:1; color:var(--text-dim); background:transparent; border:1px solid var(--card-border);
     border-radius:8px; padding:9px 12px; cursor:pointer; transition:color .3s ease, border-color .3s ease, background .3s ease;
@@ -45,7 +47,7 @@
   .field-group .field-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
   .field-group label{ font-size:11.5px; font-family:'JetBrains Mono',monospace; color:var(--text-dim); letter-spacing:.06em; text-transform:uppercase; }
   .field-group textarea{
-    width:100%; min-height:160px; resize:vertical; background:rgba(0,0,0,.25); color:var(--text); border:1px solid var(--card-border);
+    width:100%; min-height:120px; resize:vertical; background:rgba(0,0,0,.25); color:var(--text); border:1px solid var(--card-border);
     border-radius:8px; padding:8px 10px; font-family:'JetBrains Mono',monospace; font-size:12.5px; line-height:1.5;
   }
   .copy-btn{
@@ -55,7 +57,8 @@
   .copy-btn:hover{ color:var(--text); border-color:var(--purple); }
 
   .char-list{ display:flex; flex-direction:column; gap:12px; }
-  .no-char{ font-size:12.5px; color:var(--text-dim); font-family:'JetBrains Mono',monospace; opacity:.7; padding:6px 2px; }
+  .no-char-box{ text-align:center; padding:18px 12px; }
+  .no-char{ font-size:12px; color:var(--text-dim); font-family:'JetBrains Mono',monospace; opacity:.85; letter-spacing:.05em; }
 
   .details-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; font-family:'JetBrains Mono',monospace; font-size:12px; }
   .details-grid div b{ color:var(--text-dim); font-weight:500; margin-right:4px; }
@@ -67,7 +70,7 @@
   .btn-erase{
     font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:500; color:var(--text);
     border:1px solid rgba(255,110,199,.5); background:rgba(255,110,199,.08);
-    padding:12px 16px; border-radius:10px; cursor:pointer; text-align:center; flex:1;
+    padding:10px 16px; border-radius:10px; cursor:pointer; text-align:center;
     transition:background .3s ease, border-color .3s ease;
   }
   .btn-erase:hover{ background:rgba(255,110,199,.2); border-color:var(--pink); }
@@ -121,7 +124,7 @@
 
     <div class="field-group">
       <div class="field-head"><label>Characters</label></div>
-      <div class="char-list" id="charList"><div class="no-char">No character found.</div></div>
+      <div class="char-list" id="charList"><div class="field-group no-char-box"><div class="no-char">NO CHARACTER FOUND</div></div></div>
     </div>
 
     <div class="field-group" id="detailsGroup" style="display:none;">
@@ -131,13 +134,13 @@
   </div>
 
   <div class="tools-right-col">
-    <div class="tools-right" id="dropZone">
-      <div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop a NovelAI PNG here</div>
-    </div>
     <div class="image-actions" id="imageActions" style="display:none;">
       <button class="btn-erase" id="eraseBtn">Erase Metadata</button>
       <button class="icon-btn" id="clearBtn" title="Remove image">🗑️</button>
       <button class="icon-btn" id="newImageBtn" title="Upload new image">🖼️</button>
+    </div>
+    <div class="tools-right" id="dropZone">
+      <div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop a NovelAI PNG here</div>
     </div>
   </div>
 </div>
@@ -167,10 +170,12 @@ const ctx = workCanvas.getContext('2d', {willReadFrequently:true});
 let currentFileBase = 'image';
 let lastImgSize = null;
 
+const NO_CHAR_HTML = '<div class="field-group no-char-box"><div class="no-char">NO CHARACTER FOUND</div></div>';
+
 // to keep the image canvas same as image itself, dont touch i,t!!1
 function applyRightPanelAspect(size){
   if(window.innerWidth <= 900 || !size){ dropZone.style.width=''; dropZone.style.height=''; dropZone.style.minHeight=''; return; }
-  const boundW = Math.min(window.innerWidth * 0.5, 900);
+  const boundW = Math.min(window.innerWidth * 0.42, 850);
   const boundH = Math.min(window.innerHeight * 0.75, 800);
   const ratio = size.w / size.h;
   let w, h;
@@ -308,14 +313,14 @@ function renderFields(fields, comment, outer){
       block.style.padding = '10px 12px';
       block.innerHTML = `
         <div class="field-head"><label>Character ${i+1} — Prompt</label></div>
-        <textarea readonly style="min-height:90px;">${c.prompt}</textarea>
+        <textarea readonly style="min-height:80px;">${c.prompt}</textarea>
         <div class="field-head" style="margin-top:8px;"><label>Character ${i+1} — Negative</label></div>
-        <textarea readonly style="min-height:64px;">${c.negative}</textarea>
+        <textarea readonly style="min-height:56px;">${c.negative}</textarea>
       `;
       charListEl.appendChild(block);
     });
   } else {
-    charListEl.innerHTML = '<div class="no-char">No character found.</div>';
+    charListEl.innerHTML = NO_CHAR_HTML;
   }
 
   const details = {
@@ -337,7 +342,7 @@ function renderFields(fields, comment, outer){
 function clearFields(){
   basePromptEl.value = '';
   negPromptEl.value = '';
-  charListEl.innerHTML = '<div class="no-char">No character found.</div>';
+  charListEl.innerHTML = NO_CHAR_HTML;
   detailsGroup.style.display = 'none';
 }
 
