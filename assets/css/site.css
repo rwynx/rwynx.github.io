@@ -20,7 +20,7 @@ html,body{
   cursor: none;
 }
 
-/* ---- background video (assets/img/background/binary_rain.mp4 — filename unchanged, content is now the nebula) ---- */
+/* ---- background video (assets/img/background/binary_rain.mp4) keep the file name otherwise breaks, until i replace it ---- */
 video.bg-video{
   position:fixed; inset:0; width:100%; height:100%;
   object-fit:cover; z-index:0;
