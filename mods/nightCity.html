@@ -13,7 +13,10 @@
   header.page-head{ position:relative; z-index:2; max-width:1100px; margin:0 auto; padding:6vh 6vw 2vh; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
   header.page-head nav.main-nav ul{ gap:26px; }
 
-  .detail-wrap{ position:relative; z-index:2; max-width:760px; margin:0 auto; padding:2vh 6vw 12vh; }
+  /* left-aligned article column, like index.html's <main> — the image panel sits fixed on the right instead */
+  .detail-wrap{ position:relative; z-index:2; max-width:620px; margin:0 0 0 8vw; padding:2vh 0 12vh; }
+  @media(max-width:900px){ .detail-wrap{ max-width:100%; margin:0; padding:2vh 6vw 8vh; } }
+
   .go-back a{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:14px; text-decoration:none; color:var(--text-dim); transition:color .3s ease; }
   .go-back a:hover{ color:var(--purple); }
   .mod-title{ font-size:clamp(28px,4vw,40px); margin:10px 0 4px; }
@@ -27,10 +30,13 @@
   }
   .pill-links a:hover{ background:rgba(155,109,255,.18); border-color:var(--purple); animation:pillBounce .45s cubic-bezier(.34,1.56,.64,1); }
 
-  /* ---- same auto-cycling slideshow + hover-lightbox as the home page, just centered in the page flow instead of fixed ---- */
-  .preview-wrap-static{ position:relative; display:flex; flex-direction:column; align-items:center; gap:16px; margin-bottom:46px; }
+  /* ---- same fixed right-side auto-cycling slideshow + hover-lightbox as index.html ---- */
+  .preview-wrap{
+    position:fixed; top:50%; right:5vw; transform:translateY(-50%); z-index:2;
+    display:flex; flex-direction:column; align-items:center; gap:16px;
+  }
   .preview-panel{
-    position:relative; width:min(60vw, 700px); height:min(60vh, 460px); border-radius:20px; background:rgba(15,10,30,0.35);
+    position:relative; width:min(38vw, 660px); height:min(72vh, 660px); border-radius:20px; background:rgba(15,10,30,0.35);
     backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); border:2px solid rgba(155,109,255,.30);
     box-shadow:0 0 0 1px rgba(79,195,255,.12), 0 0 170px -8px rgba(155,109,255,.5); overflow:hidden; cursor:pointer;
     transition:width .5s cubic-bezier(.16,1,.3,1), height .5s cubic-bezier(.16,1,.3,1);
@@ -47,7 +53,10 @@
     font-family:'JetBrains Mono',monospace; font-size:12.5px; letter-spacing:.14em; text-transform:uppercase; color:#fff;
     text-shadow:0 0 8px rgba(255,255,255,.8), 0 0 22px rgba(255,255,255,.35); min-width:1px; text-align:center;
   }
-  @media(max-width:900px){ .preview-panel{width:100%; height:52vh;} }
+  @media(max-width:900px){
+    .preview-wrap{position:relative; top:auto; right:auto; transform:none; width:100%; margin-top:20px;}
+    .preview-panel{width:100%; height:52vh;}
+  }
 
   .lightbox-overlay{
     position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center; background:rgba(5,3,15,.35);
@@ -105,15 +114,6 @@
     <a href="https://modworkshop.net/mod/54379" target="_blank">Modworkshop ↗</a>
   </div>
 
-  <div class="preview-wrap-static">
-    <div class="preview-panel" id="previewPanel"></div>
-    <div class="preview-caption">
-      <span class="nav-arrow" id="pvPrev">‹</span>
-      <span class="caption-text" id="pvCaption">Night City Preview</span>
-      <span class="nav-arrow" id="pvNext">›</span>
-    </div>
-  </div>
-
   <div class="article">
     <h2>What is it?</h2>
     <p>Night City mod is a visual-only mod for Angel City map, adds a brand new skybox, makes the map night time and replaces vanilla Angel City's materials with Cyberpunk 2077 (Night City) themed adverts, such as billboards, posters, paintings etc.</p>
@@ -164,13 +164,22 @@
   </div>
 </div>
 
+<div class="preview-wrap">
+  <div class="preview-panel" id="previewPanel"></div>
+  <div class="preview-caption">
+    <span class="nav-arrow" id="pvPrev">‹</span>
+    <span class="caption-text" id="pvCaption">Night City Preview</span>
+    <span class="nav-arrow" id="pvNext">›</span>
+  </div>
+</div>
+
 <div class="lightbox-overlay" id="lightboxOverlay">
   <div class="lightbox-img" id="lightboxImg"></div>
 </div>
 
 <script src="../assets/js/site.js"></script>
 <script>
-// identical slideshow logic to index.html's home-page preview panel, just not position:fixed here.
+// identical slideshow logic to index.html's home-page preview panel — now also fixed to the right, not centered.
 const SLIDE_SECONDS = 2;
 (function initSlideshow(){
   const panel = document.getElementById('previewPanel');
@@ -184,8 +193,8 @@ const SLIDE_SECONDS = 2;
   function applyPanelAspect(size){
     if(window.innerWidth <= 900) return;
     const w0 = size ? size.w : 16, h0 = size ? size.h : 9;
-    const boundW = Math.min(window.innerWidth * 0.5, 700);
-    const boundH = Math.min(window.innerHeight * 0.6, 460);
+    const boundW = Math.min(window.innerWidth * 0.38, 660);
+    const boundH = Math.min(window.innerHeight * 0.72, 660);
     const ratio = w0 / h0;
     let w, h;
     if(ratio >= boundW / boundH){ w = boundW; h = boundW / ratio; } else { h = boundH; w = boundH * ratio; }

@@ -64,7 +64,7 @@
   .recent li a:hover b{ color:var(--purple); text-shadow:0 0 16px rgba(155,109,255,.55); }
 
   .recent-title{ font-size:18px; font-weight:600; margin-bottom:12px; }
-  .recent-pills{ display:flex; flex-direction:column; gap:10px; align-items:flex-start; }
+  .recent-pills{ display:flex; flex-direction:row; flex-wrap:wrap; gap:10px; align-items:flex-start; }
   @keyframes pillBounce{ 0%{transform:scale(1);} 45%{transform:scale(1.12);} 75%{transform:scale(.97);} 100%{transform:scale(1);} }
   .recent-pills a{
     font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text);
@@ -167,7 +167,7 @@
   <section id="recent" class="recent">
     <h2 class="section-title">recent <span style="opacity:.5; text-transform:none; letter-spacing:0;">— recent stuff</span></h2>
 
-    <div class="recent-title">NAI Metadata Inspector<span style="opacity:.5; font-weight:400;"></div>
+    <div class="recent-title">NAI Metadata Inspector</div>
     <div class="recent-pills">
       <a href="tools/naiMetadataInspector.html">Try it ↗</a>
     </div>
