@@ -40,8 +40,8 @@
   .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; }
   .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
 
-  /* action bar sits ABOVE the preview area, per the layout mockup */
-  .image-actions{ display:flex; gap:10px; align-items:center; align-self:flex-end; }
+  /* action bar sits ABOVE the preview area, left-aligned so it sits over the box's left edge, not right */
+  .image-actions{ display:flex; gap:10px; align-items:center; align-self:flex-start; }
   .icon-btn{
     font-size:15px; line-height:1; color:var(--text-dim); background:transparent; border:1px solid var(--card-border);
     border-radius:8px; padding:9px 12px; cursor:pointer; transition:color .3s ease, border-color .3s ease, background .3s ease;
