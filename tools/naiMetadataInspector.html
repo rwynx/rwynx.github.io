@@ -23,10 +23,13 @@
 
   .tools-right-col{ flex:1; display:flex; flex-direction:column; align-items:center; gap:16px; min-width:0; }
   /* fixed square box on purpose — letting it size to the image's own aspect ratio kept causing landscape
-     images to overflow past the box into the field-groups next to it. a constant square with object-fit:contain
-     always leaves breathing room on the short axis, no matter what shape gets uploaded. */
+     images to overflow past the box into the field-groups next to it. width:100% here means "100% of
+     whatever this flex column actually has left after the 460px left column" — NOT 100% of the viewport,
+     so it can never bleed into the left column no matter how wide the screen is. max-width just caps it
+     on very wide monitors. a constant square + object-fit:contain always leaves breathing room on the
+     short axis, no matter what shape gets uploaded. */
   .tools-right{
-    width:min(60vw, 768px); aspect-ratio:1/1; border-radius:20px;
+    width:100%; max-width:768px; aspect-ratio:1/1; border-radius:20px;
     background:var(--card-bg); border:1px solid var(--card-border);
     display:flex; align-items:center; justify-content:center;
     position:relative; overflow:hidden; cursor:pointer;
