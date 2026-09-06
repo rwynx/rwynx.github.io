@@ -29,7 +29,6 @@
     transition:border-color .3s ease, background .3s ease;
   }
   .tools-right.drag-over{ border-color:var(--purple); background:rgba(155,109,255,.08); }
-  /* checkerboard only appears once a transparent result is shown, so it's obvious the background is actually gone */
   .tools-right.checkered{
     background-image:
       linear-gradient(45deg, #2a2a2a 25%, transparent 25%), linear-gradient(-45deg, #2a2a2a 25%, transparent 25%),
@@ -55,6 +54,12 @@
   .status-msg.error{ color:var(--pink); }
   .status-msg.ok{ color:var(--blue); }
   #noteMsg{ margin-top:10px; font-size:11.5px; color:var(--text-dim); opacity:.7; line-height:1.6; }
+
+  /* model-download progress bar — sits right above the explainer note box, hidden until a download is actually happening */
+  #progressWrap{ display:none; }
+  .progress-bar{ width:100%; height:8px; border-radius:6px; background:rgba(255,255,255,.08); overflow:hidden; border:1px solid var(--card-border); }
+  .progress-fill{ height:100%; width:0%; background:linear-gradient(90deg, var(--purple), var(--blue)); transition:width .2s ease; }
+  .progress-label{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); margin-top:5px; }
 
   /* purple accent for the primary action here (Download) instead of the inspector's pink — this tool doesn't destroy anything */
   .btn-primary{
@@ -99,7 +104,12 @@
     <div class="go-back-inline"><a href="../tools.html">← Go back</a></div>
     <div>
       <div class="panel-title">Background Remover</div>
-      <p class="status-msg" id="statusMsg">Upload any image — an AI model removes the background right here in your browser. Nothing is uploaded anywhere.</p>
+      <p class="status-msg" id="statusMsg">You upload any image, I remove the background — an AI model runs the whole thing right here in your browser, nothing is uploaded anywhere.</p>
+    </div>
+
+    <div id="progressWrap">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-label" id="progressLabel"></div>
     </div>
 
     <div class="field-group">
@@ -126,14 +136,14 @@
 <input type="file" id="fileInput" accept="image/*" style="display:none;">
 
 <script src="../assets/js/site.js"></script>
-<script type="module">
+<script>
 // ---------- client-side background removal via @imgly/background-removal ----------
-// entirely in-browser (WASM + ONNX model) — the image is never sent anywhere. the library normally
-// wants SharedArrayBuffer (needs COOP/COEP response headers) for multi-threaded speed, which GitHub
-// Pages can't send — it should just fall back to single-threaded WASM and work, only slower. if it
-// turns out to actually break on GitHub Pages instead of degrading, the known fix is a small service
-// worker that fakes those headers ("coi-serviceworker") — not added yet, keeping this version simple first.
-import removeBackground from 'https://esm.sh/@imgly/background-removal';
+// IMPORTANT: the heavy library is loaded with a dynamic import() *inside* handleFile, not a top-level
+// `import` for the whole script. A top-level import blocks the ENTIRE module until it resolves (or throws) —
+// so if that import was ever slow or failed, none of the click/drag listeners below would ever get attached,
+// and the drop zone would look completely dead (this is exactly what happened in an earlier version of this
+// file). Wiring up the UI first, then dynamically importing only when actually needed, keeps upload/click
+// working no matter what happens with the model library.
 
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
@@ -142,6 +152,9 @@ const imageActions = document.getElementById('imageActions');
 const downloadBtn = document.getElementById('downloadBtn');
 const clearBtn = document.getElementById('clearBtn');
 const newImageBtn = document.getElementById('newImageBtn');
+const progressWrap = document.getElementById('progressWrap');
+const progressFill = document.getElementById('progressFill');
+const progressLabel = document.getElementById('progressLabel');
 
 let currentFileBase = 'image';
 let resultObjectUrl = null;
@@ -149,6 +162,13 @@ let resultObjectUrl = null;
 function setStatus(msg, type){
   statusMsg.textContent = msg;
   statusMsg.className = 'status-msg' + (type ? ' '+type : '');
+}
+
+function setProgress(pct, label){
+  if(pct === null){ progressWrap.style.display = 'none'; return; }
+  progressWrap.style.display = '';
+  progressFill.style.width = pct + '%';
+  progressLabel.textContent = label;
 }
 
 function loadImageEl(url){
@@ -185,9 +205,10 @@ function clearImage(){
   dropZone.classList.remove('checkered');
   dropZone.innerHTML = '<div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop an image here</div>';
   imageActions.style.display = 'none';
+  setProgress(null);
   if(resultObjectUrl){ URL.revokeObjectURL(resultObjectUrl); resultObjectUrl = null; }
   currentFileBase = 'image';
-  setStatus('Upload any image — an AI model removes the background right here in your browser. Nothing is uploaded anywhere.', '');
+  setStatus('You upload any image, I remove the background — an AI model runs the whole thing right here in your browser, nothing is uploaded anywhere.', '');
 }
 
 function showImage(url){
@@ -205,25 +226,47 @@ async function handleFile(file){
   currentFileBase = file.name.replace(/\.[^.]+$/, '');
   imageActions.style.display = 'none';
   dropZone.classList.remove('checkered');
+  setProgress(null);
 
   const originalUrl = URL.createObjectURL(file);
-  await loadImageEl(originalUrl); // just to make sure it's a real, decodable image before we commit to it
+  try{
+    await loadImageEl(originalUrl); // just confirms it's a real, decodable image before we commit to it
+  }catch(e){
+    setStatus('That file doesn\'t look like a valid image.', 'error');
+    return;
+  }
   showImage(originalUrl);
+
+  setStatus('Loading the background-removal library…');
+
+  let imglyRemoveBackground;
+  try{
+    const mod = await import('https://esm.sh/@imgly/background-removal');
+    imglyRemoveBackground = mod.default;
+  }catch(e){
+    setStatus('Could not load the background-removal library (' + e.message + '). Check your connection and try again.', 'error');
+    return;
+  }
 
   setStatus('Loading the AI model — first run downloads ~40MB, then it\'s cached.');
 
   try{
-    const resultBlob = await removeBackground(file, {
+    const resultBlob = await imglyRemoveBackground(file, {
       progress: (key, current, total) => {
-        if(total) setStatus(`Working… ${key} (${Math.round((current/total)*100)}%)`);
+        if(total){
+          const pct = Math.round((current/total)*100);
+          setProgress(pct, `${key} — ${pct}%`);
+        }
       }
     });
+    setProgress(null);
     resultObjectUrl = URL.createObjectURL(resultBlob);
     showImage(resultObjectUrl);
     dropZone.classList.add('checkered');
     imageActions.style.display = 'flex';
     setStatus('Done — background removed.', 'ok');
   }catch(e){
+    setProgress(null);
     setStatus('Something went wrong removing the background (' + e.message + '). Try a smaller image or a different browser.', 'error');
   }
 }
