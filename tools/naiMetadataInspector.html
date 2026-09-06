@@ -72,9 +72,9 @@
   .status-msg{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text-dim); line-height:1.6; }
   .status-msg.error{ color:var(--pink); }
   .status-msg.ok{ color:var(--blue); }
-  /* small italic note(s) under the main status line — explains which fields got hidden because they were empty */
-  #notesMsg{ margin-top:6px; font-style:italic; opacity:.75; }
-  #notesMsg div{ margin-bottom:2px; }
+  /* single unified note under the main status line — explains that some (unspecified) fields got hidden
+     because they were empty, styled like the "found metadata" ok message (blue) but italic to read as an aside */
+  #notesMsg{ margin-top:6px; font-style:italic; color:var(--blue); }
 
   .btn-erase{
     font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:500; color:var(--text);
@@ -300,17 +300,19 @@ function extractFields(comment){
 }
 
 // each field only renders if it actually has content — lots of people leave character negative prompts
-// (and sometimes the base ones) empty, and an empty box just looked broken. anything skipped gets a short
-// note explaining why, listed under the main status line instead.
+// (and sometimes the base ones) empty, and an empty box just looked broken. if ANY field got skipped for
+// being empty, a single generic note appears under the status line instead of one line per missing field
+// (a 4-character image with all-empty negatives used to print 4 near-identical lines, which was worse noise
+// than the empty boxes it was replacing).
 function renderFields(fields, comment, outer){
-  const notes = [];
+  let anyMissing = false;
 
   if(fields.basePrompt){
     basePromptGroup.style.display = '';
     basePromptEl.value = fields.basePrompt;
   } else {
     basePromptGroup.style.display = 'none';
-    notes.push("This image doesn't have a base prompt, therefore it is not displayed.");
+    anyMissing = true;
   }
 
   if(fields.negPrompt){
@@ -318,7 +320,7 @@ function renderFields(fields, comment, outer){
     negPromptEl.value = fields.negPrompt;
   } else {
     negPromptGroup.style.display = 'none';
-    notes.push("This image doesn't have a negative prompt, therefore it is not displayed.");
+    anyMissing = true;
   }
 
   charListEl.innerHTML = '';
@@ -327,6 +329,7 @@ function renderFields(fields, comment, outer){
       const hasPrompt = !!c.prompt;
       const hasNeg = !!c.negative;
       if(!hasPrompt && !hasNeg) return; // this character slot had nothing at all, skip it entirely
+      if(!hasPrompt || !hasNeg) anyMissing = true;
 
       const block = document.createElement('div');
       block.className = 'field-group';
@@ -335,13 +338,9 @@ function renderFields(fields, comment, outer){
 
       if(hasPrompt){
         html += `<div class="field-head"><label>Character ${i+1} — Prompt</label></div><textarea readonly style="min-height:80px;">${c.prompt}</textarea>`;
-      } else {
-        notes.push(`Character ${i+1} doesn't have a prompt, therefore it is not displayed.`);
       }
       if(hasNeg){
         html += `<div class="field-head" style="margin-top:${hasPrompt?'8px':'0'};"><label>Character ${i+1} — Negative</label></div><textarea readonly style="min-height:56px;">${c.negative}</textarea>`;
-      } else {
-        notes.push(`Character ${i+1} doesn't have a negative prompt, therefore it is not displayed.`);
       }
 
       block.innerHTML = html;
@@ -367,8 +366,8 @@ function renderFields(fields, comment, outer){
     detailsGroup.style.display = 'none';
   }
 
-  if(notes.length){
-    notesMsg.innerHTML = notes.map(n => `<div>${n}</div>`).join('');
+  if(anyMissing){
+    notesMsg.textContent = 'Some prompt fields on this image are empty, so they\'re left out above.';
     notesMsg.style.display = '';
   } else {
     notesMsg.textContent = '';
