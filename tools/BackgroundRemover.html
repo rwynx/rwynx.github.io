@@ -55,10 +55,15 @@
   .status-msg.ok{ color:var(--blue); }
   #noteMsg{ margin-top:10px; font-size:11.5px; color:var(--text-dim); opacity:.7; line-height:1.6; }
 
-  /* model-download progress bar — sits right above the explainer note box, hidden until a download is actually happening */
+  /* model-download progress bar — sits right above the explainer note box. shows an indeterminate sliding
+     animation the instant any work starts (even before real percentages exist), then switches to a real
+     percentage once the library actually reports download progress — so something visibly moves immediately
+     instead of the page looking frozen/broken for the first second or two. */
   #progressWrap{ display:none; }
-  .progress-bar{ width:100%; height:8px; border-radius:6px; background:rgba(255,255,255,.08); overflow:hidden; border:1px solid var(--card-border); }
+  .progress-bar{ width:100%; height:8px; border-radius:6px; background:rgba(255,255,255,.08); overflow:hidden; border:1px solid var(--card-border); position:relative; }
   .progress-fill{ height:100%; width:0%; background:linear-gradient(90deg, var(--purple), var(--blue)); transition:width .2s ease; }
+  .progress-fill.indeterminate{ width:35%; position:absolute; top:0; left:0; animation:progressSlide 1.1s ease-in-out infinite; transition:none; }
+  @keyframes progressSlide{ 0%{ left:-35%; } 100%{ left:100%; } }
   .progress-label{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); margin-top:5px; }
 
   /* purple accent for the primary action here (Download) instead of the inspector's pink — this tool doesn't destroy anything */
@@ -116,7 +121,7 @@
       <p id="noteMsg">
         Runs a real segmentation model client-side (via <a href="https://github.com/imgly/background-removal-js" target="_blank" style="color:var(--blue);">@imgly/background-removal</a>).
         The first run downloads about 40MB and caches it in your browser, so later uses are much faster.
-        Depending on your device this can take anywhere from a few seconds to about a minute — there's no progress bar trickery here, it's genuinely doing the work.
+        Every new image still needs a fresh pass through the model though — that part can't be skipped, it's genuinely doing the work each time.
       </p>
     </div>
   </div>
@@ -138,12 +143,10 @@
 <script src="../assets/js/site.js"></script>
 <script>
 // ---------- client-side background removal via @imgly/background-removal ----------
-// IMPORTANT: the heavy library is loaded with a dynamic import() *inside* handleFile, not a top-level
-// `import` for the whole script. A top-level import blocks the ENTIRE module until it resolves (or throws) —
-// so if that import was ever slow or failed, none of the click/drag listeners below would ever get attached,
-// and the drop zone would look completely dead (this is exactly what happened in an earlier version of this
-// file). Wiring up the UI first, then dynamically importing only when actually needed, keeps upload/click
-// working no matter what happens with the model library.
+// the heavy library is loaded via a dynamic import() inside loadLibrary(), never as a blocking top-level
+// import — that was the earlier bug where a slow/failed import prevented the click/drag listeners from ever
+// attaching at all. loadLibrary() caches its promise so calling it repeatedly (from the eager preload below
+// AND from handleFile) only ever does the actual import once.
 
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
@@ -158,17 +161,30 @@ const progressLabel = document.getElementById('progressLabel');
 
 let currentFileBase = 'image';
 let resultObjectUrl = null;
+let moduleLoadPromise = null;
 
 function setStatus(msg, type){
   statusMsg.textContent = msg;
   statusMsg.className = 'status-msg' + (type ? ' '+type : '');
 }
 
-function setProgress(pct, label){
-  if(pct === null){ progressWrap.style.display = 'none'; return; }
+// mode: null hides the bar, 'indeterminate' shows a moving "still working" animation with no real %,
+// a number 0-100 shows a real, exact progress fill.
+function setProgress(mode, label){
+  if(mode === null){
+    progressWrap.style.display = 'none';
+    progressFill.classList.remove('indeterminate');
+    return;
+  }
   progressWrap.style.display = '';
-  progressFill.style.width = pct + '%';
-  progressLabel.textContent = label;
+  progressLabel.textContent = label || '';
+  if(mode === 'indeterminate'){
+    progressFill.classList.add('indeterminate');
+    progressFill.style.width = '';
+  } else {
+    progressFill.classList.remove('indeterminate');
+    progressFill.style.width = mode + '%';
+  }
 }
 
 function loadImageEl(url){
@@ -179,6 +195,50 @@ function loadImageEl(url){
     img.src = url;
   });
 }
+
+// jsDelivr's +esm endpoint properly bundles this package (WASM/worker imports and all) into a clean
+// ES module — esm.sh's CJS/ESM interop was wrapping the default export oddly for this particular package.
+function loadLibrary(){
+  if(!moduleLoadPromise){
+    moduleLoadPromise = import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm');
+  }
+  return moduleLoadPromise;
+}
+
+function resolveRemoveBackgroundFn(mod){
+  let fn = mod.default;
+  if(typeof fn !== 'function' && mod.default && typeof mod.default.default === 'function'){
+    fn = mod.default.default; // some CDN wrappers double-nest the default export
+  }
+  if(typeof fn !== 'function' && typeof mod.removeBackground === 'function'){
+    fn = mod.removeBackground; // last-resort named-export fallback
+  }
+  if(typeof fn !== 'function') throw new Error('the library loaded but its exports look different than expected');
+  return fn;
+}
+
+// ---- eager warm-up: start fetching the library + model the moment the page opens, entirely in the
+// background. it doesn't block or delay anything else on the page. if it finishes before the visitor
+// picks a file, their first image is already fast; if not, handleFile just picks up wherever this left off
+// (loadLibrary()'s cached promise + the model cache) instead of starting over. ----
+(async ()=>{
+  try{
+    const mod = await loadLibrary();
+    const preload = mod.preload || (mod.default && mod.default.preload);
+    if(typeof preload === 'function'){
+      await preload({
+        progress: (key, current, total) => {
+          if(total && dropZone.querySelector('.drop-hint')){
+            // only show this pre-upload progress while the drop zone is still empty/idle
+            const pct = Math.round((current/total)*100);
+            setProgress(pct, `Warming up (${key}) — ${pct}%`);
+          }
+        }
+      });
+      if(dropZone.querySelector('.drop-hint')) setProgress(null);
+    }
+  }catch(e){ /* silent on purpose — handleFile will retry and surface any real error to the user then */ }
+})();
 
 dropZone.addEventListener('click', ()=> fileInput.click());
 dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
@@ -226,7 +286,6 @@ async function handleFile(file){
   currentFileBase = file.name.replace(/\.[^.]+$/, '');
   imageActions.style.display = 'none';
   dropZone.classList.remove('checkered');
-  setProgress(null);
 
   const originalUrl = URL.createObjectURL(file);
   try{
@@ -237,30 +296,21 @@ async function handleFile(file){
   }
   showImage(originalUrl);
 
+  // show *something* moving immediately, before we even know whether a real download is needed this time
+  setProgress('indeterminate', 'Getting the model ready…');
   setStatus('Loading the background-removal library…');
 
   let imglyRemoveBackground;
   try{
-    // jsDelivr's +esm endpoint properly bundles this package (WASM/worker imports and all) into a
-    // clean ES module — esm.sh's CJS/ESM interop was wrapping the default export oddly for this
-    // particular package, which is why the previous version threw "not a function".
-    const mod = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm');
-    imglyRemoveBackground = mod.default;
-    if(typeof imglyRemoveBackground !== 'function' && mod.default && typeof mod.default.default === 'function'){
-      imglyRemoveBackground = mod.default.default; // some CDN wrappers double-nest the default export
-    }
-    if(typeof imglyRemoveBackground !== 'function' && typeof mod.removeBackground === 'function'){
-      imglyRemoveBackground = mod.removeBackground; // last-resort named-export fallback
-    }
-    if(typeof imglyRemoveBackground !== 'function'){
-      throw new Error('the library loaded but its exports look different than expected');
-    }
+    const mod = await loadLibrary();
+    imglyRemoveBackground = resolveRemoveBackgroundFn(mod);
   }catch(e){
+    setProgress(null);
     setStatus('Could not load the background-removal library (' + e.message + '). Check your connection and try again.', 'error');
     return;
   }
 
-  setStatus('Loading the AI model — first run downloads ~40MB, then it\'s cached.');
+  setStatus('Removing the background…');
 
   try{
     const resultBlob = await imglyRemoveBackground(file, {
