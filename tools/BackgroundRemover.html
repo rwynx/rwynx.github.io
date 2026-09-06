@@ -241,8 +241,20 @@ async function handleFile(file){
 
   let imglyRemoveBackground;
   try{
-    const mod = await import('https://esm.sh/@imgly/background-removal');
+    // jsDelivr's +esm endpoint properly bundles this package (WASM/worker imports and all) into a
+    // clean ES module — esm.sh's CJS/ESM interop was wrapping the default export oddly for this
+    // particular package, which is why the previous version threw "not a function".
+    const mod = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm');
     imglyRemoveBackground = mod.default;
+    if(typeof imglyRemoveBackground !== 'function' && mod.default && typeof mod.default.default === 'function'){
+      imglyRemoveBackground = mod.default.default; // some CDN wrappers double-nest the default export
+    }
+    if(typeof imglyRemoveBackground !== 'function' && typeof mod.removeBackground === 'function'){
+      imglyRemoveBackground = mod.removeBackground; // last-resort named-export fallback
+    }
+    if(typeof imglyRemoveBackground !== 'function'){
+      throw new Error('the library loaded but its exports look different than expected');
+    }
   }catch(e){
     setStatus('Could not load the background-removal library (' + e.message + '). Check your connection and try again.', 'error');
     return;
