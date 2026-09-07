@@ -217,14 +217,12 @@ function resolveRemoveBackgroundFn(mod){
   return fn;
 }
 
-// explicit config shared by both preload() and the real removal call below — pins publicPath to this
-// exact package/version's own jsDelivr dist folder (files we KNOW exist, since it's what we already
-// imported) and forces proxyToWorker on, in case the CDN-bundled +esm wrapper wasn't picking up the
-// library's own defaults correctly. this is the most likely fix for the main-thread freeze: proxyToWorker
-// defaults to true in the library itself, so if the page was still freezing, the worker was probably
-// failing to spin up silently and falling back to running the WASM inference directly on the main thread.
+// NOTE: publicPath is intentionally NOT overridden here anymore. The library's own default publicPath
+// points at IMG.LY's dedicated model-data CDN (staticimgly.com), which is where the actual ~40MB model
+// files live — they are NOT part of this package's own dist folder on jsDelivr. Pointing publicPath at
+// jsDelivr broke model loading entirely ("Resource /models/isnet_fp16 not found"). proxyToWorker is kept
+// explicit since it's the one setting that might genuinely help avoid a main-thread freeze.
 const REMOVAL_CONFIG_BASE = {
-  publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/',
   proxyToWorker: true
 };
 
