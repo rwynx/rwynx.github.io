@@ -67,14 +67,3 @@ section h2.section-title::after{content:''; flex:1; height:1px; background:linea
   -webkit-background-clip:text; background-clip:text; color:transparent;
 }
 
-.status-msg a.contact-link{
-  color:#ffe66d;
-  font-weight:500;
-  text-decoration:none;
-  text-shadow:0 0 10px rgba(255,230,109,.35);
-}
-
-.status-msg a.contact-link:hover{
-  color:#fff3a3;
-  text-decoration:underline;
-}
