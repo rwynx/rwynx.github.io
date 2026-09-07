@@ -16,7 +16,6 @@
   .go-back-inline a{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px; text-decoration:none; color:var(--text-dim); transition:color .3s ease; }
   .go-back-inline a:hover{ color:var(--purple); }
 
-  /* ---- same two-column skeleton as the NAI Metadata Inspector (proven not to overflow) ---- */
   .tools-wrap{ position:relative; z-index:2; max-width:1300px; margin:0 auto; display:flex; gap:34px; align-items:flex-start; padding:2vh 6vw 10vh; }
   .tools-left{ flex:0 0 380px; display:flex; flex-direction:column; gap:18px; }
 
@@ -25,7 +24,7 @@
     width:100%; max-width:768px; aspect-ratio:1/1; border-radius:20px;
     background:var(--card-bg); border:1px solid var(--card-border);
     display:flex; align-items:center; justify-content:center;
-    position:relative; overflow:hidden; cursor:pointer;
+    position:relative; overflow:hidden; cursor:crosshair;
     transition:border-color .3s ease, background .3s ease;
   }
   .tools-right.drag-over{ border-color:var(--purple); background:rgba(155,109,255,.08); }
@@ -36,8 +35,8 @@
     background-size:24px 24px; background-position:0 0, 0 12px, 12px -12px, -12px 0;
     background-color:#1a1a1a;
   }
-  .tools-right img{ max-width:100%; max-height:100%; object-fit:contain; border-radius:14px; display:block; }
-  .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; }
+  .tools-right canvas{ max-width:100%; max-height:100%; object-fit:contain; border-radius:14px; display:block; }
+  .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; cursor:pointer; }
   .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
 
   .image-actions{ display:flex; gap:10px; align-items:center; align-self:flex-start; flex-wrap:wrap; }
@@ -49,24 +48,19 @@
 
   .panel-title{ font-size:12px; font-family:'JetBrains Mono',monospace; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px; }
   .field-group{ background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:14px 16px; }
+  .field-group .field-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .field-group label{ font-size:11.5px; font-family:'JetBrains Mono',monospace; color:var(--text-dim); letter-spacing:.06em; text-transform:uppercase; }
+
+  #colorSwatch{ width:100%; height:30px; border-radius:8px; border:1px solid var(--card-border); }
+  #colorHex{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); }
+
+  input[type=range]{ width:100%; accent-color:var(--purple); }
 
   .status-msg{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text-dim); line-height:1.6; }
   .status-msg.error{ color:var(--pink); }
-  .status-msg.ok{ color:var(--blue); }
-  #noteMsg{ margin-top:10px; font-size:11.5px; color:var(--text-dim); opacity:.7; line-height:1.6; }
+  #noteMsg{ margin-top:0; font-size:11.5px; color:var(--text-dim); opacity:.75; line-height:1.6; }
+  #noteMsg a{ color:var(--blue); }
 
-  /* model-download progress bar — sits right above the explainer note box. shows an indeterminate sliding
-     animation the instant any work starts (even before real percentages exist), then switches to a real
-     percentage once the library actually reports download progress — so something visibly moves immediately
-     instead of the page looking frozen/broken for the first second or two. */
-  #progressWrap{ display:none; }
-  .progress-bar{ width:100%; height:8px; border-radius:6px; background:rgba(255,255,255,.08); overflow:hidden; border:1px solid var(--card-border); position:relative; }
-  .progress-fill{ height:100%; width:0%; background:linear-gradient(90deg, var(--purple), var(--blue)); transition:width .2s ease; }
-  .progress-fill.indeterminate{ width:35%; position:absolute; top:0; left:0; animation:progressSlide 1.1s ease-in-out infinite; transition:none; }
-  @keyframes progressSlide{ 0%{ left:-35%; } 100%{ left:100%; } }
-  .progress-label{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); margin-top:5px; }
-
-  /* purple accent for the primary action here (Download) instead of the inspector's pink — this tool doesn't destroy anything */
   .btn-primary{
     font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:500; color:var(--text);
     border:1px solid rgba(155,109,255,.5); background:rgba(155,109,255,.08);
@@ -109,19 +103,25 @@
     <div class="go-back-inline"><a href="../tools.html">← Go back</a></div>
     <div>
       <div class="panel-title">Background Remover</div>
-      <p class="status-msg" id="statusMsg">You upload any image, I remove the background — an AI model runs the whole thing right here in your browser, nothing is uploaded anywhere.</p>
+      <p class="status-msg" id="statusMsg">Upload an image — I'll guess the background color from a corner and remove it instantly. Click anywhere on the picture to pick a different background color.</p>
     </div>
 
-    <div id="progressWrap">
-      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-      <div class="progress-label" id="progressLabel"></div>
+    <div class="field-group">
+      <div class="field-head"><label>Picked Color</label><span id="colorHex">—</span></div>
+      <div id="colorSwatch"></div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-head"><label>Tolerance</label><span id="toleranceVal" style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim);">30</span></div>
+      <input type="range" id="toleranceSlider" min="0" max="100" value="30">
     </div>
 
     <div class="field-group">
       <p id="noteMsg">
-        Runs a real segmentation model client-side (via <a href="https://github.com/imgly/background-removal-js" target="_blank" style="color:var(--blue);">@imgly/background-removal</a>).
-        The first run downloads about 40MB and caches it in your browser, so later uses are much faster.
-        Every new image still needs a fresh pass through the model though — that part can't be skipped, it's genuinely doing the work each time.
+        Instant, entirely client-side, no download, no CDN, no waiting — works by removing pixels close to a
+        chosen color. Best on flat/solid-color backgrounds (renders, game screenshots, studio-style shots).
+        For busy or gradient backgrounds, the <a href="BackgroundRemoverAI.html">AI version</a> will do a much
+        better job, at the cost of being slower and a bit experimental.
       </p>
     </div>
   </div>
@@ -142,11 +142,12 @@
 
 <script src="../assets/js/site.js"></script>
 <script>
-// ---------- client-side background removal via @imgly/background-removal ----------
-// the heavy library is loaded via a dynamic import() inside loadLibrary(), never as a blocking top-level
-// import — that was the earlier bug where a slow/failed import prevented the click/drag listeners from ever
-// attaching at all. loadLibrary() caches its promise so calling it repeatedly (from the eager preload below
-// AND from handleFile) only ever does the actual import once.
+// ---------- simple color-similarity background remover ----------
+// no AI, no CDN, no worker, no download — just canvas pixel math, entirely synchronous. this exists
+// specifically because the AI version (BackgroundRemoverAI.html) turned out to freeze the main thread on
+// some setups (its web worker doesn't reliably spin up when loaded from a CDN instead of a real bundler).
+// this one has no such failure mode: it's a plain loop over pixel data, same class of work the rest of
+// this site already does (canvas manipulation, no external deps), so it should "just work" everywhere.
 
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
@@ -155,36 +156,70 @@ const imageActions = document.getElementById('imageActions');
 const downloadBtn = document.getElementById('downloadBtn');
 const clearBtn = document.getElementById('clearBtn');
 const newImageBtn = document.getElementById('newImageBtn');
-const progressWrap = document.getElementById('progressWrap');
-const progressFill = document.getElementById('progressFill');
-const progressLabel = document.getElementById('progressLabel');
+const colorSwatch = document.getElementById('colorSwatch');
+const colorHex = document.getElementById('colorHex');
+const toleranceSlider = document.getElementById('toleranceSlider');
+const toleranceVal = document.getElementById('toleranceVal');
 
 let currentFileBase = 'image';
-let resultObjectUrl = null;
-let moduleLoadPromise = null;
+let originalImageData = null; // pristine snapshot, never mutated — every recompute starts fresh from this
+let pickedColor = null; // [r,g,b]
+let canvasEl = null;
+let ctx = null;
 
 function setStatus(msg, type){
   statusMsg.textContent = msg;
   statusMsg.className = 'status-msg' + (type ? ' '+type : '');
 }
 
-// mode: null hides the bar, 'indeterminate' shows a moving "still working" animation with no real %,
-// a number 0-100 shows a real, exact progress fill.
-function setProgress(mode, label){
-  if(mode === null){
-    progressWrap.style.display = 'none';
-    progressFill.classList.remove('indeterminate');
-    return;
-  }
-  progressWrap.style.display = '';
-  progressLabel.textContent = label || '';
-  if(mode === 'indeterminate'){
-    progressFill.classList.add('indeterminate');
-    progressFill.style.width = '';
-  } else {
-    progressFill.classList.remove('indeterminate');
-    progressFill.style.width = mode + '%';
-  }
+function toHex(n){ return n.toString(16).padStart(2,'0'); }
+
+function setPickedColor(r,g,b){
+  pickedColor = [r,g,b];
+  colorSwatch.style.background = `rgb(${r},${g},${b})`;
+  colorHex.textContent = '#' + toHex(r)+toHex(g)+toHex(b);
+}
+
+dropZone.addEventListener('click', e=>{
+  if(!canvasEl){ fileInput.click(); return; }
+  pickColorFromClick(e);
+});
+dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e=>{
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', ()=>{ if(fileInput.files[0]) handleFile(fileInput.files[0]); });
+newImageBtn.addEventListener('click', e=>{ e.stopPropagation(); fileInput.click(); });
+clearBtn.addEventListener('click', e=>{ e.stopPropagation(); clearImage(); });
+toleranceSlider.addEventListener('input', ()=>{
+  toleranceVal.textContent = toleranceSlider.value;
+  recompute();
+});
+
+downloadBtn.addEventListener('click', e=>{
+  e.stopPropagation();
+  if(!canvasEl) return;
+  canvasEl.toBlob(blob=>{
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = currentFileBase + '_nobg.png';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=> URL.revokeObjectURL(url), 5000);
+  }, 'image/png');
+});
+
+function clearImage(){
+  dropZone.classList.remove('checkered');
+  dropZone.innerHTML = '<div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop an image here</div>';
+  imageActions.style.display = 'none';
+  originalImageData = null;
+  canvasEl = null; ctx = null;
+  currentFileBase = 'image';
+  colorSwatch.style.background = '';
+  colorHex.textContent = '—';
+  setStatus('Upload an image — I\'ll guess the background color from a corner and remove it instantly. Click anywhere on the picture to pick a different background color.', '');
 }
 
 function loadImageEl(url){
@@ -196,152 +231,89 @@ function loadImageEl(url){
   });
 }
 
-// jsDelivr's +esm endpoint properly bundles this package (WASM/worker imports and all) into a clean
-// ES module — esm.sh's CJS/ESM interop was wrapping the default export oddly for this particular package.
-function loadLibrary(){
-  if(!moduleLoadPromise){
-    moduleLoadPromise = import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm');
-  }
-  return moduleLoadPromise;
+function colorDistance(r1,g1,b1,r2,g2,b2){
+  const dr=r1-r2, dg=g1-g2, db=b1-b2;
+  return Math.sqrt(dr*dr+dg*dg+db*db);
 }
 
-function resolveRemoveBackgroundFn(mod){
-  let fn = mod.default;
-  if(typeof fn !== 'function' && mod.default && typeof mod.default.default === 'function'){
-    fn = mod.default.default; // some CDN wrappers double-nest the default export
-  }
-  if(typeof fn !== 'function' && typeof mod.removeBackground === 'function'){
-    fn = mod.removeBackground; // last-resort named-export fallback
-  }
-  if(typeof fn !== 'function') throw new Error('the library loaded but its exports look different than expected');
-  return fn;
-}
-
-// NOTE: publicPath is intentionally NOT overridden here anymore. The library's own default publicPath
-// points at IMG.LY's dedicated model-data CDN (staticimgly.com), which is where the actual ~40MB model
-// files live — they are NOT part of this package's own dist folder on jsDelivr. Pointing publicPath at
-// jsDelivr broke model loading entirely ("Resource /models/isnet_fp16 not found"). proxyToWorker is kept
-// explicit since it's the one setting that might genuinely help avoid a main-thread freeze.
-const REMOVAL_CONFIG_BASE = {
-  proxyToWorker: true
-};
-
-// ---- eager warm-up: start fetching the library + model the moment the page opens, entirely in the
-// background. it doesn't block or delay anything else on the page. if it finishes before the visitor
-// picks a file, their first image is already fast; if not, handleFile just picks up wherever this left off
-// (loadLibrary()'s cached promise + the model cache) instead of starting over. ----
-(async ()=>{
-  try{
-    const mod = await loadLibrary();
-    const preload = mod.preload || (mod.default && mod.default.preload);
-    if(typeof preload === 'function'){
-      await preload({
-        ...REMOVAL_CONFIG_BASE,
-        progress: (key, current, total) => {
-          if(total && dropZone.querySelector('.drop-hint')){
-            // only show this pre-upload progress while the drop zone is still empty/idle
-            const pct = Math.round((current/total)*100);
-            setProgress(pct, `Warming up (${key}) — ${pct}%`);
-          }
-        }
-      });
-      if(dropZone.querySelector('.drop-hint')) setProgress(null);
+function recompute(){
+  if(!originalImageData || !pickedColor) return;
+  const src = originalImageData;
+  const out = new ImageData(new Uint8ClampedArray(src.data), src.width, src.height);
+  const [kr,kg,kb] = pickedColor;
+  const tol = Number(toleranceSlider.value);
+  const maxDist = 40 + (tol/100)*300; // 0 -> tight (~40), 100 -> very loose (~340, max possible is ~441)
+  const feather = Math.max(20, maxDist*0.25);
+  const d = out.data;
+  for(let i=0; i<d.length; i+=4){
+    const dist = colorDistance(d[i],d[i+1],d[i+2], kr,kg,kb);
+    if(dist <= maxDist - feather){
+      d[i+3] = 0;
+    } else if(dist < maxDist){
+      const t = (dist - (maxDist - feather)) / feather; // 0..1
+      d[i+3] = Math.round(d[i+3] * t);
     }
-  }catch(e){ /* silent on purpose — handleFile will retry and surface any real error to the user then */ }
-})();
-
-dropZone.addEventListener('click', ()=> fileInput.click());
-dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e=>{
-  e.preventDefault(); dropZone.classList.remove('drag-over');
-  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-});
-fileInput.addEventListener('change', ()=>{ if(fileInput.files[0]) handleFile(fileInput.files[0]); });
-newImageBtn.addEventListener('click', ()=> fileInput.click());
-clearBtn.addEventListener('click', clearImage);
-
-downloadBtn.addEventListener('click', ()=>{
-  if(!resultObjectUrl) return;
-  const a = document.createElement('a');
-  a.href = resultObjectUrl;
-  a.download = currentFileBase + '_nobg.png';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-});
-
-function clearImage(){
-  dropZone.classList.remove('checkered');
-  dropZone.innerHTML = '<div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop an image here</div>';
-  imageActions.style.display = 'none';
-  setProgress(null);
-  if(resultObjectUrl){ URL.revokeObjectURL(resultObjectUrl); resultObjectUrl = null; }
-  currentFileBase = 'image';
-  setStatus('You upload any image, I remove the background — an AI model runs the whole thing right here in your browser, nothing is uploaded anywhere.', '');
+  }
+  ctx.putImageData(out, 0, 0);
 }
 
-function showImage(url){
-  dropZone.innerHTML = '';
-  const img = document.createElement('img');
-  img.src = url;
-  dropZone.appendChild(img);
+// maps a click on the (letterboxed, object-fit:contain) canvas element back to the underlying image's
+// own pixel coordinates — the canvas's CSS box and its internal pixel buffer are different sizes/ratios.
+function clickToPixel(e){
+  const rect = canvasEl.getBoundingClientRect();
+  const natW = canvasEl.width, natH = canvasEl.height;
+  const scale = Math.min(rect.width/natW, rect.height/natH);
+  const dispW = natW*scale, dispH = natH*scale;
+  const offX = (rect.width - dispW)/2, offY = (rect.height - dispH)/2;
+  const x = (e.clientX - rect.left - offX) / scale;
+  const y = (e.clientY - rect.top - offY) / scale;
+  return {
+    x: Math.max(0, Math.min(natW-1, Math.round(x))),
+    y: Math.max(0, Math.min(natH-1, Math.round(y)))
+  };
+}
+
+function pickColorFromClick(e){
+  const {x,y} = clickToPixel(e);
+  const i = (y*originalImageData.width + x) * 4;
+  const d = originalImageData.data;
+  setPickedColor(d[i], d[i+1], d[i+2]);
+  recompute();
 }
 
 async function handleFile(file){
-  if(!file.type.startsWith('image/')){
-    setStatus('Please upload an image file.', 'error');
-    return;
-  }
+  if(!file.type.startsWith('image/')){ setStatus('Please upload an image file.', 'error'); return; }
   currentFileBase = file.name.replace(/\.[^.]+$/, '');
-  imageActions.style.display = 'none';
-  dropZone.classList.remove('checkered');
 
-  const originalUrl = URL.createObjectURL(file);
-  try{
-    await loadImageEl(originalUrl); // just confirms it's a real, decodable image before we commit to it
-  }catch(e){
-    setStatus('That file doesn\'t look like a valid image.', 'error');
-    return;
+  const url = URL.createObjectURL(file);
+  let img;
+  try{ img = await loadImageEl(url); }
+  catch(e){ setStatus('That file doesn\'t look like a valid image.', 'error'); return; }
+
+  dropZone.innerHTML = '';
+  canvasEl = document.createElement('canvas');
+  canvasEl.width = img.naturalWidth;
+  canvasEl.height = img.naturalHeight;
+  dropZone.appendChild(canvasEl);
+  ctx = canvasEl.getContext('2d', {willReadFrequently:true});
+  ctx.drawImage(img, 0, 0);
+  originalImageData = ctx.getImageData(0, 0, canvasEl.width, canvasEl.height);
+
+  // auto-guess: average a small patch in the top-left corner, where solid backgrounds usually reach
+  const patch = 5;
+  let r=0,g=0,b=0,n=0;
+  for(let y=0; y<Math.min(patch, canvasEl.height); y++){
+    for(let x=0; x<Math.min(patch, canvasEl.width); x++){
+      const i = (y*canvasEl.width + x) * 4;
+      r += originalImageData.data[i]; g += originalImageData.data[i+1]; b += originalImageData.data[i+2]; n++;
+    }
   }
-  showImage(originalUrl);
+  setPickedColor(Math.round(r/n), Math.round(g/n), Math.round(b/n));
 
-  // show *something* moving immediately, before we even know whether a real download is needed this time
-  setProgress('indeterminate', 'Getting the model ready…');
-  setStatus('Loading the background-removal library…');
-
-  let imglyRemoveBackground;
-  try{
-    const mod = await loadLibrary();
-    imglyRemoveBackground = resolveRemoveBackgroundFn(mod);
-  }catch(e){
-    setProgress(null);
-    setStatus('Could not load the background-removal library (' + e.message + '). Check your connection and try again.', 'error');
-    return;
-  }
-
-  setStatus('Removing the background…');
-
-  try{
-    const resultBlob = await imglyRemoveBackground(file, {
-      ...REMOVAL_CONFIG_BASE,
-      progress: (key, current, total) => {
-        if(total){
-          const pct = Math.round((current/total)*100);
-          setProgress(pct, `${key} — ${pct}%`);
-        }
-      }
-    });
-    setProgress(null);
-    resultObjectUrl = URL.createObjectURL(resultBlob);
-    showImage(resultObjectUrl);
-    dropZone.classList.add('checkered');
-    imageActions.style.display = 'flex';
-    setStatus('Done — background removed.', 'ok');
-  }catch(e){
-    setProgress(null);
-    setStatus('Something went wrong removing the background (' + e.message + '). Try a smaller image or a different browser.', 'error');
-  }
+  dropZone.classList.add('checkered');
+  imageActions.style.display = 'flex';
+  setStatus('Background removed — click anywhere on the picture to pick a different color.', 'ok');
+  recompute();
 }
 </script>
 </body>
