@@ -217,6 +217,17 @@ function resolveRemoveBackgroundFn(mod){
   return fn;
 }
 
+// explicit config shared by both preload() and the real removal call below — pins publicPath to this
+// exact package/version's own jsDelivr dist folder (files we KNOW exist, since it's what we already
+// imported) and forces proxyToWorker on, in case the CDN-bundled +esm wrapper wasn't picking up the
+// library's own defaults correctly. this is the most likely fix for the main-thread freeze: proxyToWorker
+// defaults to true in the library itself, so if the page was still freezing, the worker was probably
+// failing to spin up silently and falling back to running the WASM inference directly on the main thread.
+const REMOVAL_CONFIG_BASE = {
+  publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/',
+  proxyToWorker: true
+};
+
 // ---- eager warm-up: start fetching the library + model the moment the page opens, entirely in the
 // background. it doesn't block or delay anything else on the page. if it finishes before the visitor
 // picks a file, their first image is already fast; if not, handleFile just picks up wherever this left off
@@ -227,6 +238,7 @@ function resolveRemoveBackgroundFn(mod){
     const preload = mod.preload || (mod.default && mod.default.preload);
     if(typeof preload === 'function'){
       await preload({
+        ...REMOVAL_CONFIG_BASE,
         progress: (key, current, total) => {
           if(total && dropZone.querySelector('.drop-hint')){
             // only show this pre-upload progress while the drop zone is still empty/idle
@@ -314,6 +326,7 @@ async function handleFile(file){
 
   try{
     const resultBlob = await imglyRemoveBackground(file, {
+      ...REMOVAL_CONFIG_BASE,
       progress: (key, current, total) => {
         if(total){
           const pct = Math.round((current/total)*100);
