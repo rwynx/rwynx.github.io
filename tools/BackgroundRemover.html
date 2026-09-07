@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Background Remover — Rwyn's Blog</title>
+<meta name="description" content="Remove the background from any image using an AI model that runs entirely in your browser — no uploads, no API key, and a before/after slider to compare results.">
 <link rel="icon" type="image/png" href="../assets/img/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,7 +33,6 @@
   .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; }
   .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
 
-  /* ---- before/after comparison slider, shown once a result exists ---- */
   .compare-wrap{ position:relative; width:100%; height:100%; overflow:hidden; cursor:ew-resize; }
   .compare-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; -webkit-user-drag:none; user-select:none; pointer-events:none; }
   .compare-after-wrap{
@@ -157,10 +157,6 @@
 
 <script src="../assets/js/site.js"></script>
 <script>
-// ---------- client-side background removal via @imgly/background-removal, + a before/after compare slider ----------
-// the heavy library is loaded with a dynamic import() inside handleFile (never a blocking top-level import,
-// which was an earlier bug that killed all click/drag listeners if the import was ever slow or failed).
-
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 const statusMsg = document.getElementById('statusMsg');
@@ -270,8 +266,6 @@ function showPlainImage(url){
   dropZone.appendChild(img);
 }
 
-// builds the draggable before/after slider once a result exists. dragging (mouse or touch, via pointer
-// events) moves a clip-path on the "after" layer so more/less of the transparent result shows through.
 function showCompare(beforeUrl, afterUrl){
   dropZone.innerHTML = `
     <div class="compare-wrap" id="compareWrap">
