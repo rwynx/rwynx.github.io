@@ -111,12 +111,12 @@
     <div class="beta-banner">
       This is the experimental AI version — real segmentation, much better on complex/busy images, but it's
       slower and can occasionally hitch or freeze the tab for a few seconds while it works.
-      Prefer something fast and reliable? Try the <a href="BackgroundRemover.html">simple color-based version</a> instead.
+      If your image is not complex and you prefer something faster, try the <a href="BackgroundRemover.html">simple color-based version</a> instead.
     </div>
 
     <div>
       <div class="panel-title">Background Remover</div>
-      <p class="status-msg" id="statusMsg">You upload any image, I remove the background — an AI model runs the whole thing right here in your browser, nothing is uploaded anywhere.</p>
+      <p class="status-msg" id="statusMsg">You upload any image, I remove the background — an AI model runs the whole thing right here in your browser, your image is never sent to any server.</p>
     </div>
 
     <div id="progressWrap">
@@ -127,8 +127,9 @@
     <div class="field-group">
       <p id="noteMsg">
         Runs a real segmentation model client-side (via <a href="https://github.com/imgly/background-removal-js" target="_blank" style="color:var(--blue);">@imgly/background-removal</a>).
-        The first run downloads about 40MB and caches it in your browser, so later uses are much faster.
-        Every new image still needs a fresh pass through the model though — that part can't be skipped, it's genuinely doing the work each time.
+        If you are running it for the first time, it will download a 40MB model,
+        so depending on your internet speed it might take a few seconds to a minute.
+        Limitation: Each run requires you to download the model again. 
       </p>
     </div>
   </div>
@@ -248,7 +249,7 @@ function clearImage(){
   setProgress(null);
   if(resultObjectUrl){ URL.revokeObjectURL(resultObjectUrl); resultObjectUrl = null; }
   currentFileBase = 'image';
-  setStatus('You upload any image, I remove the background — an AI model runs the whole thing right here in your browser, nothing is uploaded anywhere.', '');
+  setStatus('You upload any image, I remove the background — an AI model runs the whole thing right here in your browser, your image is never sent to any server.', '');
 }
 
 function showImage(url){
@@ -299,7 +300,7 @@ async function handleFile(file){
     setStatus('Done — background removed.', 'ok');
   }catch(e){
     setProgress(null);
-    setStatus('Something went wrong removing the background (' + e.message + '). Try a smaller image or a different browser.', 'error');
+    setStatus('Something went wrong removing the background (' + e.message + '). Try a smaller image or a different browser. If the issue continues, let me know via <a href="https://rwyn.ch/index.html#contact" target="_blank" style="color:var(--blue);Contact</a>. ', 'error');
   }
 }
 </script>
