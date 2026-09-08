@@ -74,14 +74,6 @@
   .status-msg.ok{ color:var(--blue); }
   #noteMsg{ margin-top:10px; font-size:11.5px; color:var(--text-dim); opacity:.7; line-height:1.6; }
 
-  /* IMPORTANT: this bar keeps animating even while removeBackground() blocks the main JS thread (which it
-     does — see the note in the script below). that only works because it animates `transform`, not `left`.
-     transform/opacity are handled by the browser's compositor thread, same as the background <video>, so
-     they keep moving even when JS itself is frozen. an earlier version of this animated `left`, which needs
-     a main-thread layout pass every frame — so it silently stopped dead during the freeze and looked broken.
-     that fixed the ANIMATION, but there was a second bug: even after switching to transform, the bar could
-     still never have been painted for the FIRST time if the blocking call started before the browser ever
-     got a chance to render it — see the double-requestAnimationFrame wait in the script below for that fix. */
   #progressWrap{ display:none; }
   .progress-bar{ width:100%; height:8px; border-radius:6px; background:rgba(255,255,255,.08); overflow:hidden; border:1px solid var(--card-border); position:relative; }
   .progress-fill{ height:100%; width:0%; background:linear-gradient(90deg, var(--purple), var(--blue)); transition:width .2s ease; }
@@ -144,9 +136,10 @@
 
     <div class="field-group">
       <p id="noteMsg">
-        Runs a real segmentation model client-side (via <a href="https://github.com/imgly/background-removal-js" target="_blank" style="color:var(--blue);">@imgly/background-removal</a>).
-        If you're running it for the first time, it downloads a ~40MB model, so depending on your connection it can take a few seconds to a minute.
-        Each new image needs its own fresh pass through the model — that part can't be skipped, it's genuinely doing the work every time.
+        Runs a real segmentation model (via <a href="https://github.com/imgly/background-removal-js" target="_blank" style="color:var(--blue);">@imgly/background-removal</a>)
+        inside a dedicated Web Worker — a separate thread from the page itself, so the page stays fully
+        responsive while it works. If you're running it for the first time, it downloads a ~40MB model,
+        so depending on your connection it can take a few seconds to a minute.
         Drag the handle on the preview to compare before/after.
       </p>
     </div>
@@ -168,16 +161,13 @@
 
 <script src="../assets/js/site.js"></script>
 <script>
-// NOTE on the freeze: removeBackground() genuinely blocks the JS main thread while it runs (its web worker
-// doesn't reliably spin up when this library is loaded from a CDN instead of a real bundler — see the notes
-// in earlier commits). Because of that, ANY progress update that relies on JS running (percentage text,
-// width-based bars, the custom cursor, click ripples) will visibly stall during that period — there's no way
-// around that without truly fixing the worker. What CAN keep moving is a pure CSS transform/opacity
-// animation, since those run on the browser's compositor thread independently of JS (same reason the
-// background video never stutters). That's what the indeterminate progress bar below relies on — PLUS a
-// forced double-rAF wait right before the blocking call, so the browser gets a guaranteed chance to actually
-// paint the bar's starting frame first (without that wait, the bar's very first frame could be skipped
-// entirely if the blocking work started before any paint happened, making it invisible the whole time).
+// ---------- background removal now runs inside a real, dedicated Web Worker (tools/bgRemoveWorker.js) ----------
+// this is the actual fix for the freeze that plagued earlier versions of this page: we stopped relying on
+// @imgly/background-removal's OWN internal worker spawning (its proxyToWorker config option), which wasn't
+// reliably succeeding when the library gets loaded from a CDN instead of a real bundler. instead we spin up
+// a plain, standard module Worker ourselves. the main thread never blocks now — cursor, clicks, and the
+// progress bar below all keep working completely normally the whole time, because none of it is competing
+// with the AI computation for the same thread anymore.
 
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
@@ -192,7 +182,7 @@ const progressLabel = document.getElementById('progressLabel');
 
 let currentFileBase = 'image';
 let resultObjectUrl = null;
-let moduleLoadPromise = null;
+let worker = null;
 
 function setStatus(msg, type){
   statusMsg.textContent = msg;
@@ -207,10 +197,14 @@ function setProgress(mode, label){
   else { progressFill.classList.remove('indeterminate'); progressFill.style.width = mode + '%'; }
 }
 
-// waits for one full paint cycle to actually happen before continuing — the standard double-rAF trick.
-function waitForPaint(){
-  return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+function getWorker(){
+  if(!worker) worker = new Worker('bgRemoveWorker.js', { type: 'module' });
+  return worker;
 }
+
+// spin up the worker as soon as the page loads so the library/model can start downloading in the
+// background before the visitor has even picked a file — same idea as before, just off-thread now too.
+getWorker();
 
 function loadImageEl(url){
   return new Promise((resolve,reject)=>{
@@ -220,40 +214,6 @@ function loadImageEl(url){
     img.src = url;
   });
 }
-
-function loadLibrary(){
-  if(!moduleLoadPromise) moduleLoadPromise = import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm');
-  return moduleLoadPromise;
-}
-
-function resolveRemoveBackgroundFn(mod){
-  let fn = mod.default;
-  if(typeof fn !== 'function' && mod.default && typeof mod.default.default === 'function') fn = mod.default.default;
-  if(typeof fn !== 'function' && typeof mod.removeBackground === 'function') fn = mod.removeBackground;
-  if(typeof fn !== 'function') throw new Error('the library loaded but its exports look different than expected');
-  return fn;
-}
-
-const REMOVAL_CONFIG_BASE = { proxyToWorker: true };
-
-(async ()=>{
-  try{
-    const mod = await loadLibrary();
-    const preload = mod.preload || (mod.default && mod.default.preload);
-    if(typeof preload === 'function'){
-      await preload({
-        ...REMOVAL_CONFIG_BASE,
-        progress: (key, current, total) => {
-          if(total && dropZone.querySelector('.drop-hint')){
-            const pct = Math.round((current/total)*100);
-            setProgress(pct, `Warming up (${key}) — ${pct}%`);
-          }
-        }
-      });
-      if(dropZone.querySelector('.drop-hint')) setProgress(null);
-    }
-  }catch(e){ /* silent — handleFile retries and surfaces any real error */ }
-})();
 
 dropZone.addEventListener('click', ()=>{ if(dropZone.querySelector('.drop-hint')) fileInput.click(); });
 dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
@@ -338,43 +298,32 @@ async function handleFile(file){
   catch(e){ setStatus('That file doesn\'t look like a valid image.', 'error'); return; }
   showPlainImage(originalUrl);
 
-  setProgress('indeterminate', 'Getting the model ready…');
-  await waitForPaint();
-  setStatus('Loading the background-removal library…');
-
-  let imglyRemoveBackground;
-  try{
-    const mod = await loadLibrary();
-    imglyRemoveBackground = resolveRemoveBackgroundFn(mod);
-  }catch(e){
-    setProgress(null);
-    setStatus('Could not load the background-removal library (' + e.message + '). Check your connection and try again.', 'error');
-    return;
-  }
-
-  setStatus('Removing the background… (this can take up to ~10s and the page may feel briefly unresponsive — the bar below keeps moving to show it\'s still working)');
+  setStatus('Removing the background…');
   setProgress('indeterminate', 'Running the AI model…');
-  // this is the critical fix: give the browser a guaranteed, real chance to paint the bar above BEFORE
-  // the (possibly fully synchronous/blocking) call below starts. without this, the browser might never
-  // get to actually render the bar at all if the blocking work begins before its first paint happens.
-  await waitForPaint();
 
-  try{
-    const resultBlob = await imglyRemoveBackground(file, {
-      ...REMOVAL_CONFIG_BASE,
-      progress: (key, current, total) => {
-        if(total){ const pct = Math.round((current/total)*100); setProgress(pct, `${key} — ${pct}%`); }
+  const w = getWorker();
+  const onMessage = (e) => {
+    const msg = e.data;
+    if(msg.type === 'progress'){
+      if(msg.total){
+        const pct = Math.round((msg.current/msg.total)*100);
+        setProgress(pct, `${msg.key} — ${pct}%`);
       }
-    });
-    setProgress(null);
-    resultObjectUrl = URL.createObjectURL(resultBlob);
-    showCompare(originalUrl, resultObjectUrl);
-    imageActions.style.display = 'flex';
-    setStatus('Done — background removed. Drag the handle to compare.', 'ok');
-  }catch(e){
-    setProgress(null);
-    setStatus('Something went wrong removing the background (' + e.message + '). Try a smaller image or a different browser. If the issue continues, let me know via <a href="https://rwyn.ch/index.html#contact" target="_blank" style="color:var(--blue);">Contact</a>.', 'error');
-  }
+    } else if(msg.type === 'done'){
+      w.removeEventListener('message', onMessage);
+      setProgress(null);
+      resultObjectUrl = URL.createObjectURL(msg.blob);
+      showCompare(originalUrl, resultObjectUrl);
+      imageActions.style.display = 'flex';
+      setStatus('Done — background removed. Drag the handle to compare.', 'ok');
+    } else if(msg.type === 'error'){
+      w.removeEventListener('message', onMessage);
+      setProgress(null);
+      setStatus('Something went wrong removing the background (' + msg.message + '). Try a smaller image or a different browser. If the issue continues, let me know via <a href="https://rwyn.ch/index.html#contact" target="_blank" style="color:var(--blue);">Contact</a>.', 'error');
+    }
+  };
+  w.addEventListener('message', onMessage);
+  w.postMessage({ file });
 }
 </script>
 </body>
