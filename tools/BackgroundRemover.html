@@ -33,6 +33,27 @@
   .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; }
   .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
 
+  /* ---- processing overlay: sits directly on top of the image, dedicated element that never gets wiped
+     out by the innerHTML swaps that show/hide the hint, image, or before/after compare view. now that the
+     work happens in a real Worker (no more main-thread freeze), this animates completely normally. ---- */
+  .processing-overlay{
+    position:absolute; inset:0; z-index:5; display:none; flex-direction:column; align-items:center; justify-content:center; gap:16px;
+    background:rgba(5,3,15,.55); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); border-radius:20px;
+  }
+  .processing-overlay.on{ display:flex; }
+  .spinner{
+    width:58px; height:58px; border-radius:50%;
+    background:conic-gradient(from 0deg, transparent, var(--purple), var(--blue), transparent 65%);
+    -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
+    mask:radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
+    animation:spin .9s linear infinite;
+    filter:drop-shadow(0 0 10px rgba(155,109,255,.6));
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .processing-label{
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text); letter-spacing:.04em; text-align:center; padding:0 20px;
+  }
+
   .compare-wrap{ position:relative; width:100%; height:100%; overflow:hidden; cursor:ew-resize; }
   .compare-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; -webkit-user-drag:none; user-select:none; pointer-events:none; }
   .compare-after-wrap{
@@ -73,16 +94,6 @@
   .status-msg.error{ color:var(--pink); }
   .status-msg.ok{ color:var(--blue); }
   #noteMsg{ margin-top:10px; font-size:11.5px; color:var(--text-dim); opacity:.7; line-height:1.6; }
-
-  #progressWrap{ display:none; }
-  .progress-bar{ width:100%; height:8px; border-radius:6px; background:rgba(255,255,255,.08); overflow:hidden; border:1px solid var(--card-border); position:relative; }
-  .progress-fill{ height:100%; width:0%; background:linear-gradient(90deg, var(--purple), var(--blue)); transition:width .2s ease; }
-  .progress-fill.indeterminate{
-    width:35%; position:absolute; top:0; left:0; transition:none;
-    animation:progressSlide 1.1s ease-in-out infinite; will-change:transform;
-  }
-  @keyframes progressSlide{ 0%{ transform:translateX(-100%); } 100%{ transform:translateX(360%); } }
-  .progress-label{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); margin-top:5px; }
 
   .btn-primary{
     font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:500; color:var(--text);
@@ -129,11 +140,6 @@
       <p class="status-msg" id="statusMsg">You upload any image, I remove the background — an AI model runs the whole thing right here in your browser, your image is never sent to any server.</p>
     </div>
 
-    <div id="progressWrap">
-      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-      <div class="progress-label" id="progressLabel"></div>
-    </div>
-
     <div class="field-group">
       <p id="noteMsg">
         Runs a real segmentation model (via <a href="https://github.com/imgly/background-removal-js" target="_blank" style="color:var(--blue);">@imgly/background-removal</a>)
@@ -152,7 +158,13 @@
       <button class="icon-btn" id="newImageBtn" title="Upload new image">🖼️</button>
     </div>
     <div class="tools-right" id="dropZone">
-      <div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop an image here</div>
+      <div id="dropContent">
+        <div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop an image here</div>
+      </div>
+      <div class="processing-overlay" id="processingOverlay">
+        <div class="spinner"></div>
+        <div class="processing-label" id="processingLabel">Removing background…</div>
+      </div>
     </div>
   </div>
 </div>
@@ -161,24 +173,24 @@
 
 <script src="../assets/js/site.js"></script>
 <script>
-// ---------- background removal now runs inside a real, dedicated Web Worker (tools/bgRemoveWorker.js) ----------
-// this is the actual fix for the freeze that plagued earlier versions of this page: we stopped relying on
-// @imgly/background-removal's OWN internal worker spawning (its proxyToWorker config option), which wasn't
-// reliably succeeding when the library gets loaded from a CDN instead of a real bundler. instead we spin up
-// a plain, standard module Worker ourselves. the main thread never blocks now — cursor, clicks, and the
-// progress bar below all keep working completely normally the whole time, because none of it is competing
-// with the AI computation for the same thread anymore.
+// ---------- background removal runs inside a dedicated Web Worker (tools/bgRemoveWorker.js) ----------
+// separate real thread from the page — the main thread never blocks, so this spinner (and everything
+// else: cursor, clicks, the rest of the UI) keeps working completely normally the whole time.
+//
+// NOTE: #processingOverlay is a permanent sibling of #dropContent, not part of the swappable inner html,
+// specifically so it never gets wiped out by showPlainImage()/showCompare()/clearImage() replacing
+// dropContent's contents — it's toggled purely via the .on class.
 
 const dropZone = document.getElementById('dropZone');
+const dropContent = document.getElementById('dropContent');
+const processingOverlay = document.getElementById('processingOverlay');
+const processingLabel = document.getElementById('processingLabel');
 const fileInput = document.getElementById('fileInput');
 const statusMsg = document.getElementById('statusMsg');
 const imageActions = document.getElementById('imageActions');
 const downloadBtn = document.getElementById('downloadBtn');
 const clearBtn = document.getElementById('clearBtn');
 const newImageBtn = document.getElementById('newImageBtn');
-const progressWrap = document.getElementById('progressWrap');
-const progressFill = document.getElementById('progressFill');
-const progressLabel = document.getElementById('progressLabel');
 
 let currentFileBase = 'image';
 let resultObjectUrl = null;
@@ -189,12 +201,9 @@ function setStatus(msg, type){
   statusMsg.className = 'status-msg' + (type ? ' '+type : '');
 }
 
-function setProgress(mode, label){
-  if(mode === null){ progressWrap.style.display = 'none'; progressFill.classList.remove('indeterminate'); return; }
-  progressWrap.style.display = '';
-  progressLabel.textContent = label || '';
-  if(mode === 'indeterminate'){ progressFill.classList.add('indeterminate'); progressFill.style.width = ''; }
-  else { progressFill.classList.remove('indeterminate'); progressFill.style.width = mode + '%'; }
+function setProcessing(on, label){
+  processingOverlay.classList.toggle('on', on);
+  if(label) processingLabel.textContent = label;
 }
 
 function getWorker(){
@@ -203,7 +212,7 @@ function getWorker(){
 }
 
 // spin up the worker as soon as the page loads so the library/model can start downloading in the
-// background before the visitor has even picked a file — same idea as before, just off-thread now too.
+// background before the visitor has even picked a file.
 getWorker();
 
 function loadImageEl(url){
@@ -215,7 +224,7 @@ function loadImageEl(url){
   });
 }
 
-dropZone.addEventListener('click', ()=>{ if(dropZone.querySelector('.drop-hint')) fileInput.click(); });
+dropZone.addEventListener('click', ()=>{ if(dropContent.querySelector('.drop-hint')) fileInput.click(); });
 dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
 dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag-over'));
 dropZone.addEventListener('drop', e=>{
@@ -238,23 +247,23 @@ downloadBtn.addEventListener('click', e=>{
 });
 
 function clearImage(){
-  dropZone.innerHTML = '<div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop an image here</div>';
+  dropContent.innerHTML = '<div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop an image here</div>';
   imageActions.style.display = 'none';
-  setProgress(null);
+  setProcessing(false);
   if(resultObjectUrl){ URL.revokeObjectURL(resultObjectUrl); resultObjectUrl = null; }
   currentFileBase = 'image';
   setStatus('You upload any image, I remove the background — an AI model runs the whole thing right here in your browser, your image is never sent to any server.', '');
 }
 
 function showPlainImage(url){
-  dropZone.innerHTML = '';
+  dropContent.innerHTML = '';
   const img = document.createElement('img');
   img.src = url;
-  dropZone.appendChild(img);
+  dropContent.appendChild(img);
 }
 
 function showCompare(beforeUrl, afterUrl){
-  dropZone.innerHTML = `
+  dropContent.innerHTML = `
     <div class="compare-wrap" id="compareWrap">
       <img class="compare-img" src="${beforeUrl}">
       <div class="compare-after-wrap" id="compareAfterWrap">
@@ -299,7 +308,7 @@ async function handleFile(file){
   showPlainImage(originalUrl);
 
   setStatus('Removing the background…');
-  setProgress('indeterminate', 'Running the AI model…');
+  setProcessing(true, 'Removing background…');
 
   const w = getWorker();
   const onMessage = (e) => {
@@ -307,18 +316,18 @@ async function handleFile(file){
     if(msg.type === 'progress'){
       if(msg.total){
         const pct = Math.round((msg.current/msg.total)*100);
-        setProgress(pct, `${msg.key} — ${pct}%`);
+        setProcessing(true, `${msg.key} — ${pct}%`);
       }
     } else if(msg.type === 'done'){
       w.removeEventListener('message', onMessage);
-      setProgress(null);
+      setProcessing(false);
       resultObjectUrl = URL.createObjectURL(msg.blob);
       showCompare(originalUrl, resultObjectUrl);
       imageActions.style.display = 'flex';
       setStatus('Done — background removed. Drag the handle to compare.', 'ok');
     } else if(msg.type === 'error'){
       w.removeEventListener('message', onMessage);
-      setProgress(null);
+      setProcessing(false);
       setStatus('Something went wrong removing the background (' + msg.message + '). Try a smaller image or a different browser. If the issue continues, let me know via <a href="https://rwyn.ch/index.html#contact" target="_blank" style="color:var(--blue);">Contact</a>.', 'error');
     }
   };
