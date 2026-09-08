@@ -78,7 +78,10 @@
      does — see the note in the script below). that only works because it animates `transform`, not `left`.
      transform/opacity are handled by the browser's compositor thread, same as the background <video>, so
      they keep moving even when JS itself is frozen. an earlier version of this animated `left`, which needs
-     a main-thread layout pass every frame — so it silently stopped dead during the freeze and looked broken. */
+     a main-thread layout pass every frame — so it silently stopped dead during the freeze and looked broken.
+     that fixed the ANIMATION, but there was a second bug: even after switching to transform, the bar could
+     still never have been painted for the FIRST time if the blocking call started before the browser ever
+     got a chance to render it — see the double-requestAnimationFrame wait in the script below for that fix. */
   #progressWrap{ display:none; }
   .progress-bar{ width:100%; height:8px; border-radius:6px; background:rgba(255,255,255,.08); overflow:hidden; border:1px solid var(--card-border); position:relative; }
   .progress-fill{ height:100%; width:0%; background:linear-gradient(90deg, var(--purple), var(--blue)); transition:width .2s ease; }
@@ -171,7 +174,10 @@
 // width-based bars, the custom cursor, click ripples) will visibly stall during that period — there's no way
 // around that without truly fixing the worker. What CAN keep moving is a pure CSS transform/opacity
 // animation, since those run on the browser's compositor thread independently of JS (same reason the
-// background video never stutters). That's what the indeterminate progress bar below relies on.
+// background video never stutters). That's what the indeterminate progress bar below relies on — PLUS a
+// forced double-rAF wait right before the blocking call, so the browser gets a guaranteed chance to actually
+// paint the bar's starting frame first (without that wait, the bar's very first frame could be skipped
+// entirely if the blocking work started before any paint happened, making it invisible the whole time).
 
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
@@ -199,6 +205,11 @@ function setProgress(mode, label){
   progressLabel.textContent = label || '';
   if(mode === 'indeterminate'){ progressFill.classList.add('indeterminate'); progressFill.style.width = ''; }
   else { progressFill.classList.remove('indeterminate'); progressFill.style.width = mode + '%'; }
+}
+
+// waits for one full paint cycle to actually happen before continuing — the standard double-rAF trick.
+function waitForPaint(){
+  return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 }
 
 function loadImageEl(url){
@@ -328,6 +339,7 @@ async function handleFile(file){
   showPlainImage(originalUrl);
 
   setProgress('indeterminate', 'Getting the model ready…');
+  await waitForPaint();
   setStatus('Loading the background-removal library…');
 
   let imglyRemoveBackground;
@@ -342,6 +354,10 @@ async function handleFile(file){
 
   setStatus('Removing the background… (this can take up to ~10s and the page may feel briefly unresponsive — the bar below keeps moving to show it\'s still working)');
   setProgress('indeterminate', 'Running the AI model…');
+  // this is the critical fix: give the browser a guaranteed, real chance to paint the bar above BEFORE
+  // the (possibly fully synchronous/blocking) call below starts. without this, the browser might never
+  // get to actually render the bar at all if the blocking work begins before its first paint happens.
+  await waitForPaint();
 
   try{
     const resultBlob = await imglyRemoveBackground(file, {
