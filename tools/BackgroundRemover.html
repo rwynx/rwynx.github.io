@@ -74,11 +74,19 @@
   .status-msg.ok{ color:var(--blue); }
   #noteMsg{ margin-top:10px; font-size:11.5px; color:var(--text-dim); opacity:.7; line-height:1.6; }
 
+  /* IMPORTANT: this bar keeps animating even while removeBackground() blocks the main JS thread (which it
+     does — see the note in the script below). that only works because it animates `transform`, not `left`.
+     transform/opacity are handled by the browser's compositor thread, same as the background <video>, so
+     they keep moving even when JS itself is frozen. an earlier version of this animated `left`, which needs
+     a main-thread layout pass every frame — so it silently stopped dead during the freeze and looked broken. */
   #progressWrap{ display:none; }
   .progress-bar{ width:100%; height:8px; border-radius:6px; background:rgba(255,255,255,.08); overflow:hidden; border:1px solid var(--card-border); position:relative; }
   .progress-fill{ height:100%; width:0%; background:linear-gradient(90deg, var(--purple), var(--blue)); transition:width .2s ease; }
-  .progress-fill.indeterminate{ width:35%; position:absolute; top:0; left:0; animation:progressSlide 1.1s ease-in-out infinite; transition:none; }
-  @keyframes progressSlide{ 0%{ left:-35%; } 100%{ left:100%; } }
+  .progress-fill.indeterminate{
+    width:35%; position:absolute; top:0; left:0; transition:none;
+    animation:progressSlide 1.1s ease-in-out infinite; will-change:transform;
+  }
+  @keyframes progressSlide{ 0%{ transform:translateX(-100%); } 100%{ transform:translateX(360%); } }
   .progress-label{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); margin-top:5px; }
 
   .btn-primary{
@@ -157,6 +165,14 @@
 
 <script src="../assets/js/site.js"></script>
 <script>
+// NOTE on the freeze: removeBackground() genuinely blocks the JS main thread while it runs (its web worker
+// doesn't reliably spin up when this library is loaded from a CDN instead of a real bundler — see the notes
+// in earlier commits). Because of that, ANY progress update that relies on JS running (percentage text,
+// width-based bars, the custom cursor, click ripples) will visibly stall during that period — there's no way
+// around that without truly fixing the worker. What CAN keep moving is a pure CSS transform/opacity
+// animation, since those run on the browser's compositor thread independently of JS (same reason the
+// background video never stutters). That's what the indeterminate progress bar below relies on.
+
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 const statusMsg = document.getElementById('statusMsg');
@@ -324,7 +340,8 @@ async function handleFile(file){
     return;
   }
 
-  setStatus('Removing the background…');
+  setStatus('Removing the background… (this can take up to ~10s and the page may feel briefly unresponsive — the bar below keeps moving to show it\'s still working)');
+  setProgress('indeterminate', 'Running the AI model…');
 
   try{
     const resultBlob = await imglyRemoveBackground(file, {
