@@ -33,8 +33,6 @@
   .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; }
   .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
 
-  /* fills the whole box with a definite, real size — lesson learned from the background remover:
-     percentage-sized children with no definite parent size collapse to zero height. */
   #dropContent{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
 
   .image-actions{ display:flex; gap:10px; align-items:center; align-self:flex-start; flex-wrap:wrap; }
@@ -56,6 +54,7 @@
     width:100%; background:rgba(0,0,0,.25); color:var(--text); border:1px solid var(--card-border);
     border-radius:8px; padding:8px 10px; font-family:'JetBrains Mono',monospace; font-size:13px;
   }
+  input[type=number]::placeholder{ color:rgba(200,200,220,.35); }
   input[type=range]{ width:100%; accent-color:var(--purple); }
 
   .lock-btn{
@@ -134,8 +133,8 @@
     </div>
 
     <div class="field-group">
-      <div class="field-head"><label>Or resize by percentage</label></div>
-      <input type="number" id="scaleInput" min="1" max="1000" value="100" placeholder="100">
+      <div class="field-head"><label>Resize by percentage</label></div>
+      <input type="number" id="scaleInput" min="1" max="1000" placeholder="e.g. 50% smaller, 150% bigger">
     </div>
 
     <div class="field-group">
@@ -182,10 +181,6 @@
 
 <script src="../assets/js/site.js"></script>
 <script>
-// ---------- simple client-side image resizer ----------
-// pure canvas resampling, no CDN, no worker needed — a single drawImage() call is fast even for large
-// images, nothing here can realistically freeze the page the way the AI background remover could.
-
 const dropZone = document.getElementById('dropZone');
 const dropContent = document.getElementById('dropContent');
 const fileInput = document.getElementById('fileInput');
@@ -247,7 +242,7 @@ resetBtn.addEventListener('click', ()=>{
   if(!sourceImg) return;
   widthInput.value = naturalW;
   heightInput.value = naturalH;
-  scaleInput.value = 100;
+  scaleInput.value = '';
   redraw();
 });
 
@@ -269,7 +264,8 @@ heightInput.addEventListener('input', ()=>{
 });
 scaleInput.addEventListener('input', ()=>{
   if(!sourceImg) return;
-  const scale = parseFloat(scaleInput.value) || 100;
+  const scale = parseFloat(scaleInput.value);
+  if(!scale) return;
   widthInput.value = Math.max(1, Math.round(naturalW * scale / 100));
   heightInput.value = Math.max(1, Math.round(naturalH * scale / 100));
   redraw();
@@ -308,7 +304,7 @@ function clearImage(){
   imageActions.style.display = 'none';
   sourceImg = null; canvasEl = null; ctx = null;
   currentFileBase = 'image';
-  widthInput.value = ''; heightInput.value = ''; scaleInput.value = 100;
+  widthInput.value = ''; heightInput.value = ''; scaleInput.value = '';
   setStatus('You upload an image, I resize it — by exact pixels, by percentage, or a one-click preset. Everything happens right here in your browser.', '');
 }
 
@@ -342,7 +338,7 @@ async function handleFile(file){
 
   widthInput.value = naturalW;
   heightInput.value = naturalH;
-  scaleInput.value = 100;
+  scaleInput.value = '';
   redraw();
 
   imageActions.style.display = 'flex';
