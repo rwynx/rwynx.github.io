@@ -33,6 +33,12 @@
   .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; }
   .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
 
+  /* fills the whole box with a definite, real size — without this, percentage-sized children like
+     .compare-wrap (width/height:100%) have no definite parent size to resolve against and collapse to
+     zero height, which is exactly what made the before/after view invisible (a plain <img> doesn't hit
+     this because it has its own intrinsic size as a fallback; a plain <div> does not). */
+  #dropContent{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+
   /* ---- processing overlay: sits directly on top of the image, dedicated element that never gets wiped
      out by the innerHTML swaps that show/hide the hint, image, or before/after compare view. now that the
      work happens in a real Worker (no more main-thread freeze), this animates completely normally. ---- */
