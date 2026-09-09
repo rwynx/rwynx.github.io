@@ -67,3 +67,11 @@ section h2.section-title::after{content:''; flex:1; height:1px; background:linea
   -webkit-background-clip:text; background-clip:text; color:transparent;
 }
 
+/* ---- shared site footer, injected on every page by site.js so it only needs editing in one place ---- */
+.site-footer{
+  position:relative; z-index:2; text-align:center; padding:22px 6vw 30px;
+  font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-dim); opacity:.55;
+  letter-spacing:.03em;
+}
+.site-footer a{ color:var(--text-dim); text-decoration:none; transition:color .3s ease; }
+.site-footer a:hover{ color:var(--purple); }

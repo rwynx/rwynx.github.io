@@ -141,3 +141,14 @@ if(document.getElementById('lightboxOverlay')){
     });
   });
 }
+
+// ---------- shared site footer — appended to every page from this one file so it never needs editing in
+// more than one place. root-relative link (leading slash), same reasoning as NIGHT_CITY_IMAGES above: this
+// script loads from pages at different folder depths, and a leading slash keeps the link correct everywhere.
+// kept small/quiet on purpose (low opacity, tiny text) — present and reachable, not shouting for attention. ----------
+(function initFooter(){
+  const footer = document.createElement('footer');
+  footer.className = 'site-footer';
+  footer.innerHTML = '&copy; Rwyn · <a href="/privacy.html">Privacy</a>';
+  document.body.appendChild(footer);
+})();
