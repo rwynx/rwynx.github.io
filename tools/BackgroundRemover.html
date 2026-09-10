@@ -163,7 +163,7 @@
 
     <div class="field-group">
       <p id="noteMsg">
-        Runs a real segmentation model — BRIA AI's <a href="https://huggingface.co/briaai/RMBG-1.4" target="_blank" style="color:var(--blue);">RMBG-1.4</a> for Fast/Balanced, or <a href="https://huggingface.co/ZhengPeng7/BiRefNet" target="_blank" style="color:var(--blue);">BiRefNet</a> for Heavy — via <a href="https://github.com/huggingface/transformers.js" target="_blank" style="color:var(--blue);">transformers.js</a>,
+        Runs a real segmentation model — BRIA AI's <a href="https://huggingface.co/briaai/RMBG-1.4" target="_blank" style="color:var(--blue);">RMBG-1.4</a> for Fast/Balanced, or <a href="https://huggingface.co/ajartivo/aj-pixel-cut" target="_blank" style="color:var(--blue);">BiRefNet</a> for Heavy — via <a href="https://github.com/huggingface/transformers.js" target="_blank" style="color:var(--blue);">transformers.js</a>,
         inside a dedicated Web Worker — a separate thread from the page itself, so the page stays fully
         responsive while it works. Model size depends on the quality picked above; it's downloaded once
         per quality level and cached by your browser after that.
@@ -242,10 +242,8 @@ function setProcessing(on, label){
 }
 
 // ?v=N cache-busts the worker script itself. GitHub Pages' cache headers served a stale cached copy of
-// bgRemoveWorker.js across the last couple of edits — that's what caused the "Invalid dtype: heavy"
-// error (an old cached worker that didn't know about the 'heavy' tier passed the string straight through
-// to RMBG's dtype option). bump WORKER_VERSION any time bgRemoveWorker.js changes.
-const WORKER_VERSION = 3;
+// bgRemoveWorker.js across previous edits — bump WORKER_VERSION any time bgRemoveWorker.js changes.
+const WORKER_VERSION = 4;
 function getWorker(){
   if(!worker) worker = new Worker('bgRemoveWorker.js?v=' + WORKER_VERSION, { type: 'module' });
   return worker;
