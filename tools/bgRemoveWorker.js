@@ -21,7 +21,7 @@ self.onmessage = async (e) => {
     const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/+esm');
 
     const segmenter = await pipeline('background-removal', 'briaai/RMBG-1.4', {
-      dtype: 'q8', // int8 quantized weights, ~44MB — swap to 'fp16' (~88MB) later if accuracy needs it
+      dtype: 'fp16', // int8 quantized weights, ~44MB — swap to 'fp16' (~88MB) later if accuracy needs it
       progress_callback: (p) => {
         if (p.status === 'progress' && p.total) {
           self.postMessage({ type: 'progress', key: p.file || 'model', current: p.loaded, total: p.total });
