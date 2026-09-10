@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy — Rwyn's Blog</title>
+<meta name="description" content="Privacy notes for rwyn.ch: what this site does and doesn't do with your data.">
+<link rel="icon" type="image/png" href="assets/img/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="assets/css/site.css" rel="stylesheet">
+<style>
+  header.page-head{ position:relative; z-index:2; max-width:1100px; margin:0 auto; padding:6vh 6vw 2vh; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
+  header.page-head nav.main-nav ul{ gap:26px; }
+  .go-back-inline{ margin-bottom:4px; }
+  .go-back-inline a{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px; text-decoration:none; color:var(--text-dim); transition:color .3s ease; }
+  .go-back-inline a:hover{ color:var(--purple); }
+
+  .detail-wrap{ position:relative; z-index:2; max-width:680px; margin:0 auto; padding:2vh 6vw 10vh; }
+  .article h2{ font-size:19px; margin:30px 0 10px; }
+  .article p{ font-size:14.5px; line-height:1.75; color:var(--text-dim); margin-bottom:12px; }
+  .article p a{ color:var(--blue); }
+  .article ul{ margin:0 0 12px; padding-left:20px; }
+  .article li{ font-size:14px; line-height:1.7; color:var(--text-dim); margin-bottom:6px; }
+  .article li b{ color:var(--text); font-weight:600; }
+  .last-updated{ font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-dim); opacity:.6; margin-top:6px; }
+</style>
+</head>
+<body>
+
+<video class="bg-video" src="assets/img/background/binary_rain.mp4" muted loop autoplay playsinline></video>
+<div class="bg-tint"></div>
+<canvas id="field"></canvas>
+<div class="cursor-glow" id="glow"></div>
+
+<header class="page-head">
+  <h1 class="page-title">Privacy</h1>
+  <nav class="main-nav">
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="tools.html">Tools</a></li>
+      <li><a href="mods.html">Mods</a></li>
+      <li><a href="apps.html">Apps</a></li>
+      <li><a href="index.html#contact">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="detail-wrap">
+  <div class="go-back-inline"><a href="index.html">← Go back</a></div>
+  <div class="last-updated">Last updated: September 2026</div>
+
+  <div class="article">
+    <h2>The short version</h2>
+    <p>This is a personal, non-commercial site. I don't run ads, I don't sell anything, and I don't track you. The tools on this site (NovelAI Metadata Inspector, Background Remover, Image Resizer) process everything — images, PNGs, whatever you feed them — entirely inside your own browser. Nothing you upload into a tool on this site is ever sent to me, to a server, or to any third party.</p>
+
+    <h2>What I don't do</h2>
+    <ul>
+      <li>No accounts, no sign-ups, no logins.</li>
+      <li>No analytics, no ad trackers, no cookies set by me.</li>
+      <li>No file uploads for any of the tools — they run client-side, in your browser, using JavaScript and the Canvas/WebAssembly APIs. I never see what you put into them.</li>
+    </ul>
+
+    <h2>What does happen, outside my control</h2>
+    <p>This site is static and hosted on GitHub Pages, and uses a couple of standard third-party services that any visitor's browser talks to directly:</p>
+    <ul>
+      <li><b>GitHub Pages hosting</b> — like any web host, it keeps standard server logs (things like your IP address and browser type) for the pages you request. I don't have special access to this beyond what GitHub provides.</li>
+      <li><b>Google Fonts</b> — this site loads a couple of fonts from Google's font CDN (fonts.googleapis.com / fonts.gstatic.com), which means your browser makes a direct request to Google to fetch them, and Google can see the request (including your IP) the same way it would for any font request on any site.</li>
+      <li><b>The Background Remover tool</b> loads an AI model from a public CDN (jsDelivr) the first time you use it — again, your browser fetches it directly, no data about your image is involved, it's just downloading the model files themselves.</li>
+    </ul>
+
+    <h2>Questions</h2>
+    <p>If you have any questions about this, reach out via the links on the <a href="index.html#contact">Contact</a> section of the homepage.</p>
+  </div>
+</div>
+
+<script src="assets/js/site.js"></script>
+</body>
+</html>
