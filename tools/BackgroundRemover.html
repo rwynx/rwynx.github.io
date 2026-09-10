@@ -96,6 +96,12 @@
   .panel-title{ font-size:12px; font-family:'JetBrains Mono',monospace; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px; }
   .field-group{ background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:14px 16px; }
 
+  /* ---- quality/size selector: three pill radios, each with its own size + tradeoff note ---- */
+  .quality-opt{ display:flex; align-items:flex-start; gap:9px; font-size:12px; color:var(--text-dim); line-height:1.55; margin-bottom:11px; cursor:pointer; }
+  .quality-opt:last-child{ margin-bottom:0; }
+  .quality-opt input{ margin-top:3px; accent-color:var(--purple); cursor:pointer; }
+  .quality-opt b{ color:var(--text); font-weight:600; }
+
   .status-msg{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text-dim); line-height:1.6; }
   .status-msg.error{ color:var(--pink); }
   .status-msg.ok{ color:var(--blue); }
@@ -147,11 +153,20 @@
     </div>
 
     <div class="field-group">
+      <div class="panel-title" style="margin-bottom:10px;">Model quality</div>
+      <div id="qualityOptions">
+        <label class="quality-opt"><input type="radio" name="quality" value="q8" checked><span><b>Fast</b> — ~44MB. Good default, quickest first load, fine for most images.</span></label>
+        <label class="quality-opt"><input type="radio" name="quality" value="fp16"><span><b>Balanced</b> — ~88MB. Slightly more precise on tricky edges, longer first load.</span></label>
+        <label class="quality-opt"><input type="radio" name="quality" value="fp32"><span><b>Max</b> — ~176MB. Full precision. Only worth it on a fast connection — this one's a real wait on the first run.</span></label>
+      </div>
+    </div>
+
+    <div class="field-group">
       <p id="noteMsg">
         Runs a real segmentation model (BRIA AI's <a href="https://huggingface.co/briaai/RMBG-1.4" target="_blank" style="color:var(--blue);">RMBG-1.4</a>, via <a href="https://github.com/huggingface/transformers.js" target="_blank" style="color:var(--blue);">transformers.js</a>)
         inside a dedicated Web Worker — a separate thread from the page itself, so the page stays fully
-        responsive while it works. If you're running it for the first time, it downloads a ~44MB model,
-        so depending on your connection it can take a few seconds to a minute.
+        responsive while it works. Model size depends on the quality picked above; it's downloaded once
+        per quality level and cached by your browser after that.
         Drag the handle on the preview to compare before/after.
       </p>
     </div>
@@ -202,6 +217,20 @@ let currentFileBase = 'image';
 let resultObjectUrl = null;
 let worker = null;
 
+// remember the visitor's quality pick between visits (harmless localStorage use, not an artifact sandbox)
+const savedQuality = localStorage.getItem('bgRemoverQuality');
+if(savedQuality){
+  const match = document.querySelector(`input[name="quality"][value="${savedQuality}"]`);
+  if(match) match.checked = true;
+}
+document.querySelectorAll('input[name="quality"]').forEach(inp=>{
+  inp.addEventListener('change', ()=>{ if(inp.checked) localStorage.setItem('bgRemoverQuality', inp.value); });
+});
+function getQuality(){
+  const checked = document.querySelector('input[name="quality"]:checked');
+  return checked ? checked.value : 'q8';
+}
+
 function setStatus(msg, type){
   statusMsg.textContent = msg;
   statusMsg.className = 'status-msg' + (type ? ' '+type : '');
@@ -217,7 +246,7 @@ function getWorker(){
   return worker;
 }
 
-// spin up the worker as soon as the page loads so the library/model can start downloading in the
+// spin up the worker as soon as the page loads so the library can start downloading in the
 // background before the visitor has even picked a file.
 getWorker();
 
@@ -338,7 +367,7 @@ async function handleFile(file){
     }
   };
   w.addEventListener('message', onMessage);
-  w.postMessage({ file });
+  w.postMessage({ file, dtype: getQuality() });
 }
 </script>
 </body>
