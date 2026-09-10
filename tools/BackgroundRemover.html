@@ -96,7 +96,6 @@
   .panel-title{ font-size:12px; font-family:'JetBrains Mono',monospace; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px; }
   .field-group{ background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:14px 16px; }
 
-  /* ---- quality/size selector: three pill radios, each with its own size + tradeoff note ---- */
   .quality-opt{ display:flex; align-items:flex-start; gap:9px; font-size:12px; color:var(--text-dim); line-height:1.55; margin-bottom:11px; cursor:pointer; }
   .quality-opt:last-child{ margin-bottom:0; }
   .quality-opt input{ margin-top:3px; accent-color:var(--purple); cursor:pointer; }
@@ -157,13 +156,12 @@
       <div id="qualityOptions">
         <label class="quality-opt"><input type="radio" name="quality" value="q8" checked><span><b>Fast</b> — ~44MB. Good default, quickest first load, fine for most images.</span></label>
         <label class="quality-opt"><input type="radio" name="quality" value="fp16"><span><b>Balanced</b> — ~88MB. Slightly more precise on tricky edges, longer first load.</span></label>
-        <label class="quality-opt"><input type="radio" name="quality" value="heavy"><span><b>Heavy</b> — BiRefNet, a genuinely different model (not just RMBG at higher precision), built for complex/multi-subject images. ~200MB and a real wait on first load — worth it specifically for the busy scenes the other two struggle with.</span></label>
       </div>
     </div>
 
     <div class="field-group">
       <p id="noteMsg">
-        Runs a real segmentation model — BRIA AI's <a href="https://huggingface.co/briaai/RMBG-1.4" target="_blank" style="color:var(--blue);">RMBG-1.4</a> for Fast/Balanced, or <a href="https://huggingface.co/ajartivo/aj-pixel-cut" target="_blank" style="color:var(--blue);">BiRefNet</a> for Heavy — via <a href="https://github.com/huggingface/transformers.js" target="_blank" style="color:var(--blue);">transformers.js</a>,
+        Runs a real segmentation model (BRIA AI's <a href="https://huggingface.co/briaai/RMBG-1.4" target="_blank" style="color:var(--blue);">RMBG-1.4</a>, via <a href="https://github.com/huggingface/transformers.js" target="_blank" style="color:var(--blue);">transformers.js</a>)
         inside a dedicated Web Worker — a separate thread from the page itself, so the page stays fully
         responsive while it works. Model size depends on the quality picked above; it's downloaded once
         per quality level and cached by your browser after that.
@@ -241,9 +239,9 @@ function setProcessing(on, label){
   if(label) processingLabel.textContent = label;
 }
 
-// ?v=N cache-busts the worker script itself. GitHub Pages' cache headers served a stale cached copy of
-// bgRemoveWorker.js across previous edits — bump WORKER_VERSION any time bgRemoveWorker.js changes.
-const WORKER_VERSION = 4;
+// ?v=N cache-busts the worker script itself — bump WORKER_VERSION any time bgRemoveWorker.js changes,
+// otherwise GitHub Pages'/the browser's caching can keep serving a stale copy.
+const WORKER_VERSION = 5;
 function getWorker(){
   if(!worker) worker = new Worker('bgRemoveWorker.js?v=' + WORKER_VERSION, { type: 'module' });
   return worker;
