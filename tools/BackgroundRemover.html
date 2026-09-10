@@ -241,8 +241,13 @@ function setProcessing(on, label){
   if(label) processingLabel.textContent = label;
 }
 
+// ?v=N cache-busts the worker script itself. GitHub Pages' cache headers served a stale cached copy of
+// bgRemoveWorker.js across the last couple of edits — that's what caused the "Invalid dtype: heavy"
+// error (an old cached worker that didn't know about the 'heavy' tier passed the string straight through
+// to RMBG's dtype option). bump WORKER_VERSION any time bgRemoveWorker.js changes.
+const WORKER_VERSION = 3;
 function getWorker(){
-  if(!worker) worker = new Worker('bgRemoveWorker.js', { type: 'module' });
+  if(!worker) worker = new Worker('bgRemoveWorker.js?v=' + WORKER_VERSION, { type: 'module' });
   return worker;
 }
 
