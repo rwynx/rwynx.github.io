@@ -12,14 +12,17 @@
 //
 // - 'q8' / 'fp16'  → BRIA AI's RMBG-1.4 (CC BY-NC 4.0, non-commercial — fine for this site), through
 //                     the 'background-removal' pipeline, which hands back a ready-made RGBA cutout.
-// - 'heavy'        → ZhengPeng7/BiRefNet (MIT), a dual-branch architecture built specifically for
-//                     complex/high-resolution scenes — an actually different model, not just a bigger
-//                     version of the same one. runs through the generic 'image-segmentation' pipeline
-//                     instead (that's what BiRefNet is registered under), which only returns a mask,
-//                     so we composite the cutout ourselves: draw the original onto an OffscreenCanvas,
-//                     then write the mask's grayscale values into its alpha channel pixel by pixel.
-//                     nearest-neighbor scaling kicks in if the returned mask isn't the same resolution
-//                     as the source image.
+// - 'heavy'        → BiRefNet (MIT), a dual-branch architecture built specifically for complex/
+//                     high-resolution scenes — an actually different model, not just a bigger version
+//                     of the same one. the official ZhengPeng7/BiRefNet repo isn't set up for
+//                     transformers.js (missing preprocessor_config.json — it expects PyTorch's
+//                     trust_remote_code loading instead), so this uses ajartivo/aj-pixel-cut, a
+//                     community mirror published specifically for browser/transformers.js use.
+//                     runs through the generic 'image-segmentation' pipeline (that's what BiRefNet is
+//                     registered under), which only returns a mask, so we composite the cutout
+//                     ourselves: draw the original onto an OffscreenCanvas, then write the mask's
+//                     grayscale values into its alpha channel pixel by pixel. nearest-neighbor scaling
+//                     kicks in if the returned mask isn't the same resolution as the source image.
 //
 // each tier gets its own cached pipeline instance in self._pipelines, so switching between them
 // mid-session doesn't re-trigger a download for one already fetched.
@@ -35,7 +38,7 @@ self.onmessage = async (e) => {
 
     if (chosenDtype === 'heavy') {
       if (!self._pipelines.heavy) {
-        self._pipelines.heavy = pipeline('image-segmentation', 'ZhengPeng7/BiRefNet', {
+        self._pipelines.heavy = pipeline('image-segmentation', 'ajartivo/aj-pixel-cut', {
           progress_callback: (p) => {
             if (p.status === 'progress' && p.total) {
               self.postMessage({ type: 'progress', key: p.file || 'model', current: p.loaded, total: p.total });
