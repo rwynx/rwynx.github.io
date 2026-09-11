@@ -17,10 +17,6 @@
   .go-back-inline a{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px; text-decoration:none; color:var(--text-dim); transition:color .3s ease; }
   .go-back-inline a:hover{ color:var(--purple); }
 
-  /* PROTOTYPE NOTE: PS-style split — niche/global actions (image, crop, download) stay in the top bar
-     since most people won't touch them often; per-tool controls (text, draw, shapes, transform) live
-     in a left rail since that's what people reach for constantly while actually editing; layers sit on
-     the right so overlapping objects can be told apart and reordered without guessing on the canvas. */
   .editor-wrap{ position:relative; z-index:2; max-width:1400px; margin:0 auto; padding:0 6vw 8vh; display:flex; flex-direction:column; gap:16px; }
 
   .toolbar{
@@ -64,9 +60,23 @@
     font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text);
     background:rgba(255,255,255,.03); border:1px solid var(--card-border); border-radius:8px; padding:7px 9px;
   }
-  select.tool-select{ max-width:150px; width:100%; }
   input.tool-input[type="number"]{ width:60px; }
   input.tool-input[type="color"]{ width:36px; height:32px; padding:2px; cursor:pointer; }
+
+  /* ---- custom font picker: dark themed, each row previewed in its own font ---- */
+  .font-picker{ position:relative; width:100%; }
+  .font-picker-btn{
+    width:100%; text-align:left; font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text);
+    background:rgba(255,255,255,.03); border:1px solid var(--card-border); border-radius:8px; padding:8px 10px; cursor:pointer;
+  }
+  .font-picker-btn:hover{ border-color:var(--purple); }
+  .font-picker-panel{
+    display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:30; max-height:230px; overflow-y:auto;
+    background:#0e0a1c; border:1px solid var(--card-border); border-radius:10px; padding:6px; box-shadow:0 14px 34px rgba(0,0,0,.55);
+  }
+  .font-picker-panel.open{ display:block; }
+  .font-picker-item{ padding:8px 10px; border-radius:7px; cursor:pointer; color:var(--text); font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .font-picker-item:hover{ background:rgba(155,109,255,.18); }
 
   .stage-area{
     display:flex; align-items:center; justify-content:center;
@@ -80,7 +90,6 @@
   .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
   #editorCanvas{ display:none; border-radius:10px; max-width:100%; }
 
-  /* ---- layers panel ---- */
   .layers-list{ display:flex; flex-direction:column; gap:4px; max-height:60vh; overflow-y:auto; }
   .layer-row{
     display:flex; align-items:center; gap:6px; padding:7px 8px; border-radius:8px; cursor:pointer;
@@ -147,6 +156,7 @@
     <div class="toolbar-group">
       <span class="toolbar-label">Export</span>
       <button class="btn-primary" id="downloadBtn">Download PNG</button>
+      <button class="btn-primary" id="openResizerBtn" title="Send this to the Image Resizer tool">Resize →</button>
     </div>
   </div>
 
@@ -163,6 +173,9 @@
           <button class="icon-btn" id="addCircleBtn" title="Circle">◯</button>
           <button class="icon-btn" id="addLineBtn" title="Line">╱</button>
           <input class="tool-input" type="color" id="shapeColorInput" value="#9b6dff" title="Shape/line color">
+        </div>
+        <div class="tool-btn-row">
+          <button class="icon-btn" id="newShapeModeBtn" title="Filled or outline for new shapes">● Filled</button>
         </div>
       </div>
 
@@ -182,19 +195,27 @@
           <button class="icon-btn" id="rotateCCWBtn" title="Rotate -90°">⟲</button>
           <button class="icon-btn" id="rotateCWBtn" title="Rotate +90°">⟳</button>
         </div>
-        <span class="status-msg" style="font-size:10.5px; opacity:.6;">Applies to the selected layer, or the whole image if nothing's selected.</span>
+        <span class="status-msg" style="font-size:10.5px; opacity:.6;">Applies to the selected layer. With nothing selected, rotates/flips the whole image (and resizes the canvas to fit, so nothing gets clipped).</span>
       </div>
 
       <div class="tool-section" id="textStyleGroup" style="display:none;">
         <span class="tool-section-title">Text style</span>
         <div class="style-row">
-          <select class="tool-select" id="fontSelect"></select>
+          <div class="font-picker" id="fontPicker">
+            <button type="button" class="font-picker-btn" id="fontPickerBtn">Inter ▾</button>
+            <div class="font-picker-panel" id="fontPickerPanel"></div>
+          </div>
         </div>
         <div class="style-row">
           <input class="tool-input" type="number" id="sizeInput" min="6" max="300" value="32" title="Font size">
           <input class="tool-input" type="color" id="colorInput" value="#ffffff" title="Text color">
-          <button class="icon-btn" id="deleteObjBtn" title="Delete selected">🗑️</button>
         </div>
+        <div class="style-row">
+          <span class="toolbar-label" style="margin:0;">Outline</span>
+          <input class="tool-input" type="color" id="textStrokeColorInput" value="#000000" title="Text outline color">
+          <input class="tool-input" type="number" id="textStrokeWidthInput" min="0" max="30" value="0" title="Outline width, 0 = none">
+        </div>
+        <button class="icon-btn" id="deleteObjBtn" title="Delete selected">🗑️</button>
       </div>
 
       <div class="tool-section" id="shapeStyleGroup" style="display:none;">
@@ -202,8 +223,12 @@
         <div class="style-row">
           <span class="toolbar-label" style="margin:0;">Color</span>
           <input class="tool-input" type="color" id="shapeSelectedColorInput" title="Selected shape color">
-          <button class="icon-btn" id="deleteShapeBtn" title="Delete selected">🗑️</button>
         </div>
+        <div class="style-row" id="shapeOutlineRow">
+          <button class="icon-btn" id="shapeOutlineToggleBtn" title="Toggle filled/outline">◐ Outline</button>
+          <input class="tool-input" type="number" id="shapeStrokeWidthInput" min="1" max="60" value="4" title="Outline width" style="display:none;">
+        </div>
+        <button class="icon-btn" id="deleteShapeBtn" title="Delete selected">🗑️</button>
       </div>
     </div>
 
@@ -229,12 +254,16 @@
 
 <script src="../assets/js/site.js"></script>
 <script type="module">
-// PROTOTYPE v2 — same Fabric.js v6 base as v1, restructured into a PS-style layout: niche/global
-// actions (image/crop/download) stay in the top bar, per-tool controls move to a left rail, and a
-// right-hand layers panel lists every object so overlapping stuff can be told apart and reordered.
-//
-// honest limitations: layer reordering uses up/down buttons rather than drag-and-drop (simpler to get
-// right for a first pass); the layers list doesn't show thumbnails, just a type icon + short label.
+// PROTOTYPE v3 — same Fabric.js v6 base, addressing feedback from v2:
+// - rotate/flip on the whole image (nothing selected) now resizes the canvas to the new footprint
+//   instead of clipping — a 90° rotate flattens all layers into the new base, same tradeoff as crop.
+// - more fonts + a custom dark-themed font picker with live per-row preview (native <select> option
+//   styling can't be reliably dark-themed or fonted across browsers, so this replaces it entirely).
+// - text outline: outer stroke only — canvas text rendering doesn't have a native "inner-only" stroke,
+//   so that specific variant isn't feasible here without a much bigger custom text-rendering pass.
+// - shapes: fill vs outline toggle, for both newly-added shapes and the currently selected one.
+// - "Resize →" hands the flattened canvas to the Image Resizer tool via sessionStorage and navigates
+//   there (closing this editor) rather than duplicating the whole resize UI in here.
 
 import { Canvas, FabricImage, Textbox, Rect, Circle, Line, PencilBrush } from 'https://cdn.jsdelivr.net/npm/fabric@6/+esm';
 
@@ -246,6 +275,7 @@ const canvasEl = document.getElementById('editorCanvas');
 const fileInput = document.getElementById('fileInput');
 const changeImgBtn = document.getElementById('changeImgBtn');
 const downloadBtn = document.getElementById('downloadBtn');
+const openResizerBtn = document.getElementById('openResizerBtn');
 const cropBtn = document.getElementById('cropBtn');
 const applyCropBtn = document.getElementById('applyCropBtn');
 const cancelCropBtn = document.getElementById('cancelCropBtn');
@@ -256,6 +286,7 @@ const addRectBtn = document.getElementById('addRectBtn');
 const addCircleBtn = document.getElementById('addCircleBtn');
 const addLineBtn = document.getElementById('addLineBtn');
 const shapeColorInput = document.getElementById('shapeColorInput');
+const newShapeModeBtn = document.getElementById('newShapeModeBtn');
 
 const brushGroup = document.getElementById('brushGroup');
 const brushColorInput = document.getElementById('brushColorInput');
@@ -267,36 +298,48 @@ const rotateCCWBtn = document.getElementById('rotateCCWBtn');
 const rotateCWBtn = document.getElementById('rotateCWBtn');
 
 const textStyleGroup = document.getElementById('textStyleGroup');
-const fontSelect = document.getElementById('fontSelect');
+const fontPickerBtn = document.getElementById('fontPickerBtn');
+const fontPickerPanel = document.getElementById('fontPickerPanel');
 const sizeInput = document.getElementById('sizeInput');
 const colorInput = document.getElementById('colorInput');
+const textStrokeColorInput = document.getElementById('textStrokeColorInput');
+const textStrokeWidthInput = document.getElementById('textStrokeWidthInput');
 const deleteObjBtn = document.getElementById('deleteObjBtn');
 
 const shapeStyleGroup = document.getElementById('shapeStyleGroup');
 const shapeSelectedColorInput = document.getElementById('shapeSelectedColorInput');
+const shapeOutlineRow = document.getElementById('shapeOutlineRow');
+const shapeOutlineToggleBtn = document.getElementById('shapeOutlineToggleBtn');
+const shapeStrokeWidthInput = document.getElementById('shapeStrokeWidthInput');
 const deleteShapeBtn = document.getElementById('deleteShapeBtn');
 
 const layersList = document.getElementById('layersList');
 
-// a small curated set covering a few different moods — every one of these is a free Google Font
-// (OFL/Apache licensed), fine for personal or commercial use, no font-hunting needed.
+// every one of these is a free Google Font (OFL/Apache licensed) — fine for personal or commercial use.
 const GOOGLE_FONTS = [
   { name: 'Inter', css: 'Inter:wght@400;700' },
   { name: 'Poppins', css: 'Poppins:wght@400;700' },
+  { name: 'Montserrat', css: 'Montserrat:wght@400;700' },
+  { name: 'Raleway', css: 'Raleway:wght@400;700' },
   { name: 'Playfair Display', css: 'Playfair+Display:wght@400;700' },
+  { name: 'Lora', css: 'Lora:wght@400;700' },
+  { name: 'Cormorant Garamond', css: 'Cormorant+Garamond:wght@400;700' },
+  { name: 'Merriweather', css: 'Merriweather:wght@400;700' },
   { name: 'Bebas Neue', css: 'Bebas+Neue' },
   { name: 'Anton', css: 'Anton' },
   { name: 'Oswald', css: 'Oswald:wght@400;700' },
+  { name: 'Righteous', css: 'Righteous' },
+  { name: 'Bangers', css: 'Bangers' },
+  { name: 'Abril Fatface', css: 'Abril+Fatface' },
+  { name: 'Comfortaa', css: 'Comfortaa:wght@400;700' },
   { name: 'Caveat', css: 'Caveat:wght@400;700' },
   { name: 'Pacifico', css: 'Pacifico' },
+  { name: 'Dancing Script', css: 'Dancing+Script:wght@400;700' },
+  { name: 'Shadows Into Light', css: 'Shadows+Into+Light' },
+  { name: 'Permanent Marker', css: 'Permanent+Marker' },
   { name: 'Roboto Mono', css: 'Roboto+Mono:wght@400;700' },
-  { name: 'Merriweather', css: 'Merriweather:wght@400;700' }
+  { name: 'Space Mono', css: 'Space+Mono:wght@400;700' }
 ];
-GOOGLE_FONTS.forEach(f => {
-  const opt = document.createElement('option');
-  opt.value = f.name; opt.textContent = f.name;
-  fontSelect.appendChild(opt);
-});
 
 const loadedFonts = new Set(['Inter']);
 function ensureFontLoaded(name){
@@ -314,6 +357,38 @@ function ensureFontLoaded(name){
   });
 }
 
+// ---- custom font picker: dark panel, each row rendered in its own (lazily loaded) font ----
+let fontPanelBuilt = false;
+function buildFontPanel(){
+  if(fontPanelBuilt) return;
+  fontPanelBuilt = true;
+  GOOGLE_FONTS.forEach(f => {
+    const item = document.createElement('div');
+    item.className = 'font-picker-item';
+    item.textContent = f.name;
+    item.style.fontFamily = `"${f.name}", sans-serif`;
+    ensureFontLoaded(f.name); // pre-fetch so the row previews correctly once the font arrives
+    item.addEventListener('click', async () => {
+      fontPickerPanel.classList.remove('open');
+      await ensureFontLoaded(f.name);
+      selectFontUI(f.name);
+      const obj = fcanvas && fcanvas.getActiveObject();
+      if(obj && obj.type === 'textbox'){ obj.set('fontFamily', f.name); fcanvas.renderAll(); }
+    });
+    fontPickerPanel.appendChild(item);
+  });
+}
+function selectFontUI(name){
+  fontPickerBtn.textContent = name + ' ▾';
+  fontPickerBtn.style.fontFamily = `"${name}", sans-serif`;
+}
+fontPickerBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  buildFontPanel();
+  fontPickerPanel.classList.toggle('open');
+});
+document.addEventListener('click', () => fontPickerPanel.classList.remove('open'));
+
 function setStatus(msg, type){
   statusMsg.textContent = msg;
   statusMsg.className = 'status-msg' + (type ? ' ' + type : '');
@@ -325,6 +400,7 @@ let bgImageRef = null;
 let cropRect = null;
 let cropping = false;
 let drawMode = false;
+let newShapeOutline = false;
 
 function initCanvas(imgUrl, naturalW, naturalH){
   if(fcanvas){ fcanvas.dispose(); fcanvas = null; }
@@ -370,14 +446,28 @@ function updateStylePanels(){
   const isShape = !!(obj && ['rect', 'circle', 'line'].includes(obj.type));
   textStyleGroup.style.display = isText ? 'flex' : 'none';
   shapeStyleGroup.style.display = isShape ? 'flex' : 'none';
+
   if(isText){
-    fontSelect.value = obj.fontFamily || 'Inter';
+    selectFontUI(obj.fontFamily || 'Inter');
     sizeInput.value = Math.round(obj.fontSize || 32);
     colorInput.value = normalizeHex(obj.fill) || '#ffffff';
+    textStrokeColorInput.value = normalizeHex(obj.stroke) || '#000000';
+    textStrokeWidthInput.value = Math.round(obj.strokeWidth || 0);
   }
+
   if(isShape){
-    const val = obj.type === 'line' ? obj.stroke : obj.fill;
-    shapeSelectedColorInput.value = normalizeHex(val) || '#9b6dff';
+    const isLine = obj.type === 'line';
+    shapeOutlineRow.style.display = isLine ? 'none' : 'flex';
+    if(isLine){
+      shapeSelectedColorInput.value = normalizeHex(obj.stroke) || '#9b6dff';
+    } else {
+      const isOutline = !obj.fill || obj.fill === 'transparent';
+      shapeSelectedColorInput.value = normalizeHex(isOutline ? obj.stroke : obj.fill) || '#9b6dff';
+      shapeOutlineToggleBtn.classList.toggle('active', isOutline);
+      shapeOutlineToggleBtn.textContent = isOutline ? '◐ Outline' : '● Filled';
+      shapeStrokeWidthInput.style.display = isOutline ? 'inline-block' : 'none';
+      shapeStrokeWidthInput.value = Math.round(obj.strokeWidth || 4);
+    }
   }
 }
 
@@ -491,6 +581,17 @@ downloadBtn.addEventListener('click', () => {
   document.body.appendChild(a); a.click(); a.remove();
 });
 
+openResizerBtn.addEventListener('click', () => {
+  if(!fcanvas) return;
+  const dataUrl = fcanvas.toDataURL({ format: 'png', multiplier: 1 });
+  try{
+    sessionStorage.setItem('rwx_transfer_image', dataUrl);
+    window.location.href = 'ImageResizer.html';
+  } catch(err){
+    setStatus('Couldn\'t hand this off to the Resizer (the image may be too large for the transfer). Download it and upload it there instead.', 'error');
+  }
+});
+
 // ---- text ----
 addTextBtn.addEventListener('click', () => {
   if(!fcanvas) return;
@@ -503,13 +604,6 @@ addTextBtn.addEventListener('click', () => {
   fcanvas.renderAll();
   onSelectionChange();
 });
-fontSelect.addEventListener('change', async () => {
-  const obj = fcanvas && fcanvas.getActiveObject();
-  if(!obj || obj.type !== 'textbox') return;
-  await ensureFontLoaded(fontSelect.value);
-  obj.set('fontFamily', fontSelect.value);
-  fcanvas.renderAll();
-});
 sizeInput.addEventListener('input', () => {
   const obj = fcanvas && fcanvas.getActiveObject();
   if(!obj || obj.type !== 'textbox') return;
@@ -520,6 +614,18 @@ colorInput.addEventListener('input', () => {
   const obj = fcanvas && fcanvas.getActiveObject();
   if(!obj || obj.type !== 'textbox') return;
   obj.set('fill', colorInput.value);
+  fcanvas.renderAll();
+});
+textStrokeColorInput.addEventListener('input', () => {
+  const obj = fcanvas && fcanvas.getActiveObject();
+  if(!obj || obj.type !== 'textbox') return;
+  obj.set('stroke', textStrokeColorInput.value);
+  fcanvas.renderAll();
+});
+textStrokeWidthInput.addEventListener('input', () => {
+  const obj = fcanvas && fcanvas.getActiveObject();
+  if(!obj || obj.type !== 'textbox') return;
+  obj.set('strokeWidth', parseInt(textStrokeWidthInput.value, 10) || 0);
   fcanvas.renderAll();
 });
 deleteObjBtn.addEventListener('click', () => deleteActive());
@@ -536,7 +642,7 @@ function deleteActive(){
 document.addEventListener('keydown', e => {
   if(!fcanvas) return;
   const obj = fcanvas.getActiveObject();
-  if(!obj || obj.isEditing) return; // don't eat backspace while typing inside a textbox
+  if(!obj || obj.isEditing) return;
   if(e.key === 'Delete' || e.key === 'Backspace'){
     if(document.activeElement && document.activeElement.tagName === 'INPUT') return;
     deleteActive();
@@ -544,14 +650,26 @@ document.addEventListener('keydown', e => {
 });
 
 // ---- shapes ----
+newShapeModeBtn.addEventListener('click', () => {
+  newShapeOutline = !newShapeOutline;
+  newShapeModeBtn.textContent = newShapeOutline ? '◐ Outline' : '● Filled';
+  newShapeModeBtn.classList.toggle('active', newShapeOutline);
+});
+
 addRectBtn.addEventListener('click', () => {
   if(!fcanvas) return;
-  const r = new Rect({ left: fcanvas.width / 2 - 60, top: fcanvas.height / 2 - 40, width: 120, height: 80, fill: shapeColorInput.value });
+  const opts = { left: fcanvas.width / 2 - 60, top: fcanvas.height / 2 - 40, width: 120, height: 80 };
+  if(newShapeOutline) Object.assign(opts, { fill: 'transparent', stroke: shapeColorInput.value, strokeWidth: 4 });
+  else Object.assign(opts, { fill: shapeColorInput.value });
+  const r = new Rect(opts);
   fcanvas.add(r); fcanvas.setActiveObject(r); fcanvas.renderAll(); onSelectionChange();
 });
 addCircleBtn.addEventListener('click', () => {
   if(!fcanvas) return;
-  const c = new Circle({ left: fcanvas.width / 2 - 50, top: fcanvas.height / 2 - 50, radius: 50, fill: shapeColorInput.value });
+  const opts = { left: fcanvas.width / 2 - 50, top: fcanvas.height / 2 - 50, radius: 50 };
+  if(newShapeOutline) Object.assign(opts, { fill: 'transparent', stroke: shapeColorInput.value, strokeWidth: 4 });
+  else Object.assign(opts, { fill: shapeColorInput.value });
+  const c = new Circle(opts);
   fcanvas.add(c); fcanvas.setActiveObject(c); fcanvas.renderAll(); onSelectionChange();
 });
 addLineBtn.addEventListener('click', () => {
@@ -560,11 +678,34 @@ addLineBtn.addEventListener('click', () => {
   const l = new Line([cx - 60, cy, cx + 60, cy], { stroke: shapeColorInput.value, strokeWidth: 4 });
   fcanvas.add(l); fcanvas.setActiveObject(l); fcanvas.renderAll(); onSelectionChange();
 });
+
 shapeSelectedColorInput.addEventListener('input', () => {
   const obj = fcanvas && fcanvas.getActiveObject();
   if(!obj) return;
-  if(obj.type === 'line') obj.set('stroke', shapeSelectedColorInput.value);
-  else if(obj.type === 'rect' || obj.type === 'circle') obj.set('fill', shapeSelectedColorInput.value);
+  if(obj.type === 'line'){ obj.set('stroke', shapeSelectedColorInput.value); }
+  else {
+    const isOutline = !obj.fill || obj.fill === 'transparent';
+    if(isOutline) obj.set('stroke', shapeSelectedColorInput.value);
+    else obj.set('fill', shapeSelectedColorInput.value);
+  }
+  fcanvas.renderAll();
+});
+shapeOutlineToggleBtn.addEventListener('click', () => {
+  const obj = fcanvas && fcanvas.getActiveObject();
+  if(!obj || obj.type === 'line') return;
+  const isOutline = !obj.fill || obj.fill === 'transparent';
+  if(isOutline){
+    obj.set({ fill: shapeSelectedColorInput.value, stroke: null, strokeWidth: 0 });
+  } else {
+    obj.set({ fill: 'transparent', stroke: shapeSelectedColorInput.value, strokeWidth: parseInt(shapeStrokeWidthInput.value, 10) || 4 });
+  }
+  fcanvas.renderAll();
+  updateStylePanels();
+});
+shapeStrokeWidthInput.addEventListener('input', () => {
+  const obj = fcanvas && fcanvas.getActiveObject();
+  if(!obj || obj.type === 'line') return;
+  obj.set('strokeWidth', parseInt(shapeStrokeWidthInput.value, 10) || 4);
   fcanvas.renderAll();
 });
 
@@ -584,12 +725,65 @@ drawToggleBtn.addEventListener('click', () => {
 brushColorInput.addEventListener('input', () => { if(fcanvas && fcanvas.freeDrawingBrush) fcanvas.freeDrawingBrush.color = brushColorInput.value; });
 brushSizeInput.addEventListener('input', () => { if(fcanvas && fcanvas.freeDrawingBrush) fcanvas.freeDrawingBrush.width = parseInt(brushSizeInput.value, 10) || 6; });
 
-// ---- transform (applies to selection, falls back to the whole image) ----
-function getTransformTarget(){ return (fcanvas && fcanvas.getActiveObject()) || bgImageRef; }
-flipHBtn.addEventListener('click', () => { const t = getTransformTarget(); if(!t || !fcanvas) return; t.set('flipX', !t.flipX); fcanvas.renderAll(); });
-flipVBtn.addEventListener('click', () => { const t = getTransformTarget(); if(!t || !fcanvas) return; t.set('flipY', !t.flipY); fcanvas.renderAll(); });
-rotateCCWBtn.addEventListener('click', () => { const t = getTransformTarget(); if(!t || !fcanvas) return; t.rotate(((t.angle || 0) - 90 + 360) % 360); fcanvas.renderAll(); });
-rotateCWBtn.addEventListener('click', () => { const t = getTransformTarget(); if(!t || !fcanvas) return; t.rotate(((t.angle || 0) + 90) % 360); fcanvas.renderAll(); });
+// ---- transform ----
+// a selected object rotates/flips in place (no canvas resize needed — it's a free-floating layer).
+// with nothing selected, it applies to the whole image: flipping is fine in place, but a 90° rotate
+// changes the image's footprint, so the canvas itself is resized to match and everything is flattened
+// into the new base (same tradeoff as crop) — this is what fixes the old clipping bug.
+function rotateWholeCanvas(deltaDeg){
+  if(!fcanvas) return;
+  const oldW = fcanvas.width, oldH = fcanvas.height;
+  const newW = oldH, newH = oldW;
+
+  const sourceEl = fcanvas.lowerCanvasEl;
+  const outCanvas = document.createElement('canvas');
+  outCanvas.width = newW; outCanvas.height = newH;
+  const octx = outCanvas.getContext('2d');
+  octx.translate(newW / 2, newH / 2);
+  octx.rotate(deltaDeg * Math.PI / 180);
+  octx.drawImage(sourceEl, -oldW / 2, -oldH / 2, oldW, oldH);
+  const dataUrl = outCanvas.toDataURL('image/png');
+
+  fcanvas.clear();
+  fcanvas.setWidth(newW); fcanvas.setHeight(newH);
+  canvasEl.width = newW; canvasEl.height = newH;
+
+  FabricImage.fromURL(dataUrl).then(img => {
+    img.set({ left: 0, top: 0, selectable: false, evented: false });
+    img.isBackground = true;
+    bgImageRef = img;
+    fcanvas.add(img);
+    fcanvas.renderAll();
+  });
+}
+flipHBtn.addEventListener('click', () => {
+  if(!fcanvas) return;
+  const obj = fcanvas.getActiveObject();
+  const t = obj || bgImageRef;
+  if(!t) return;
+  t.set('flipX', !t.flipX);
+  fcanvas.renderAll();
+});
+flipVBtn.addEventListener('click', () => {
+  if(!fcanvas) return;
+  const obj = fcanvas.getActiveObject();
+  const t = obj || bgImageRef;
+  if(!t) return;
+  t.set('flipY', !t.flipY);
+  fcanvas.renderAll();
+});
+rotateCCWBtn.addEventListener('click', () => {
+  if(!fcanvas) return;
+  const obj = fcanvas.getActiveObject();
+  if(obj){ obj.rotate(((obj.angle || 0) - 90 + 360) % 360); fcanvas.renderAll(); }
+  else { rotateWholeCanvas(-90); }
+});
+rotateCWBtn.addEventListener('click', () => {
+  if(!fcanvas) return;
+  const obj = fcanvas.getActiveObject();
+  if(obj){ obj.rotate(((obj.angle || 0) + 90) % 360); fcanvas.renderAll(); }
+  else { rotateWholeCanvas(90); }
+});
 
 // ---- crop ----
 cropBtn.addEventListener('click', () => {
@@ -643,8 +837,6 @@ applyCropBtn.addEventListener('click', () => {
     octx.drawImage(sourceEl, b.left, b.top, newW, newH, 0, 0, newW, newH);
     const croppedDataUrl = outCanvas.toDataURL('image/png');
 
-    // crop flattens everything (text/shapes/drawing included) into the new base image — a from-scratch
-    // re-edit after cropping, same tradeoff as v1
     fcanvas.clear();
     fcanvas.setWidth(newW); fcanvas.setHeight(newH);
     canvasEl.width = newW; canvasEl.height = newH;
