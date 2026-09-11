@@ -344,6 +344,21 @@ async function handleFile(file){
   imageActions.style.display = 'flex';
   setStatus(`Loaded at ${naturalW}×${naturalH}. Change the size on the left — the preview updates live.`, 'ok');
 }
+
+// ---- incoming transfer from the Image Editor prototype's "Resize →" button ----
+// it stashes its flattened canvas as a PNG data URL in sessionStorage before navigating here; we pick
+// it up once, load it exactly like a normal upload, then clear the key so a page refresh doesn't reload it.
+(function checkIncomingTransfer(){
+  try{
+    const dataUrl = sessionStorage.getItem('rwx_transfer_image');
+    if(!dataUrl) return;
+    sessionStorage.removeItem('rwx_transfer_image');
+    fetch(dataUrl).then(r => r.blob()).then(blob => {
+      const file = new File([blob], 'from-editor.png', { type: blob.type || 'image/png' });
+      handleFile(file);
+    }).catch(() => { /* silently ignore — worst case the person just uploads manually */ });
+  } catch(e){ /* sessionStorage unavailable (privacy mode etc.) — ignore */ }
+})();
 </script>
 </body>
 </html>
