@@ -109,6 +109,19 @@
   .status-msg.error{ color:var(--pink); }
   .status-msg.ok{ color:var(--blue); }
 
+  /* ---- confirm modal (used for the "Resize" hand-off warning) ---- */
+  .confirm-overlay{
+    display:none; position:fixed; inset:0; z-index:50; align-items:center; justify-content:center;
+    background:rgba(5,3,15,.6); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  }
+  .confirm-overlay.open{ display:flex; }
+  .confirm-box{
+    max-width:380px; margin:20px; background:var(--card-bg); border:1px solid var(--card-border);
+    border-radius:16px; padding:22px; box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .confirm-text{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text-dim); line-height:1.7; margin-bottom:18px; }
+  .confirm-actions{ display:flex; gap:10px; justify-content:flex-end; }
+
   @media(max-width:1100px){
     .editor-body{ flex-direction:column; }
     .side-panel, .layers-col{ width:100%; flex:1 1 auto; }
@@ -252,6 +265,16 @@
 
 <input type="file" id="fileInput" accept="image/*" style="display:none;">
 
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <p class="confirm-text">Sending this to the Resizer closes this editor — it doesn't keep running in the background, so whatever you've made here is lost unless you download it first.</p>
+    <div class="confirm-actions">
+      <button class="btn-primary danger" id="confirmCancelBtn">Cancel</button>
+      <button class="btn-primary" id="confirmSendBtn">Send anyway</button>
+    </div>
+  </div>
+</div>
+
 <script src="../assets/js/site.js"></script>
 <script type="module">
 // PROTOTYPE v3 — same Fabric.js v6 base, addressing feedback from v2:
@@ -262,8 +285,9 @@
 // - text outline: outer stroke only — canvas text rendering doesn't have a native "inner-only" stroke,
 //   so that specific variant isn't feasible here without a much bigger custom text-rendering pass.
 // - shapes: fill vs outline toggle, for both newly-added shapes and the currently selected one.
-// - "Resize →" hands the flattened canvas to the Image Resizer tool via sessionStorage and navigates
-//   there (closing this editor) rather than duplicating the whole resize UI in here.
+// - "Resize →" now confirms first (styled modal, not a native confirm()) since closing this editor to
+//   hand off to the Resizer isn't obvious — some sites keep background tabs "alive" and people
+//   reasonably assume the same here unless told otherwise.
 
 import { Canvas, FabricImage, Textbox, Rect, Circle, Line, PencilBrush } from 'https://cdn.jsdelivr.net/npm/fabric@6/+esm';
 
@@ -279,6 +303,10 @@ const openResizerBtn = document.getElementById('openResizerBtn');
 const cropBtn = document.getElementById('cropBtn');
 const applyCropBtn = document.getElementById('applyCropBtn');
 const cancelCropBtn = document.getElementById('cancelCropBtn');
+
+const confirmOverlay = document.getElementById('confirmOverlay');
+const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+const confirmSendBtn = document.getElementById('confirmSendBtn');
 
 const addTextBtn = document.getElementById('addTextBtn');
 const drawToggleBtn = document.getElementById('drawToggleBtn');
@@ -581,7 +609,16 @@ downloadBtn.addEventListener('click', () => {
   document.body.appendChild(a); a.click(); a.remove();
 });
 
+// "Resize →" warns before navigating away, since closing this editor loses the in-progress edit —
+// it doesn't keep running in a background tab the way some other sites' tools do.
 openResizerBtn.addEventListener('click', () => {
+  if(!fcanvas) return;
+  confirmOverlay.classList.add('open');
+});
+confirmCancelBtn.addEventListener('click', () => confirmOverlay.classList.remove('open'));
+confirmOverlay.addEventListener('click', e => { if(e.target === confirmOverlay) confirmOverlay.classList.remove('open'); });
+confirmSendBtn.addEventListener('click', () => {
+  confirmOverlay.classList.remove('open');
   if(!fcanvas) return;
   const dataUrl = fcanvas.toDataURL({ format: 'png', multiplier: 1 });
   try{
