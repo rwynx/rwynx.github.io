@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Editor — Rwyn's Blog</title>
+<meta name="description" content="A simple browser-based image editor — crop, add text, and more. Nothing ever leaves your browser.">
+<link rel="icon" type="image/png" href="../assets/img/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="../assets/css/site.css" rel="stylesheet">
+<style>
+  header.page-head{ position:relative; z-index:2; max-width:1300px; margin:0 auto; padding:6vh 6vw 2vh; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
+  header.page-head nav.main-nav ul{ gap:26px; }
+  .go-back-inline{ position:relative; z-index:2; max-width:1300px; margin:0 auto; padding:0 6vw 2vh; }
+  .go-back-inline a{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px; text-decoration:none; color:var(--text-dim); transition:color .3s ease; }
+  .go-back-inline a:hover{ color:var(--purple); }
+
+  /* PROTOTYPE NOTE: controls live in a horizontal bar up top instead of the usual left/right split —
+     during actual editing you want the image big and the tool switches close to your cursor's eyeline,
+     not off to the side. this is intentionally a different skeleton from the other tools. */
+  .editor-wrap{ position:relative; z-index:2; max-width:1300px; margin:0 auto; padding:0 6vw 8vh; display:flex; flex-direction:column; gap:18px; }
+
+  .toolbar{
+    display:none; flex-wrap:wrap; align-items:center; gap:10px;
+    background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:12px 16px;
+  }
+  .toolbar-group{ display:flex; align-items:center; gap:8px; padding-right:12px; border-right:1px solid var(--card-border); }
+  .toolbar-group:last-child{ border-right:none; padding-right:0; }
+  .toolbar-label{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-dim); margin-right:2px; }
+
+  .btn-primary{
+    font-family:'JetBrains Mono',monospace; font-size:12.5px; font-weight:500; color:var(--text);
+    border:1px solid rgba(155,109,255,.5); background:rgba(155,109,255,.08);
+    padding:8px 13px; border-radius:9px; cursor:pointer; text-align:center; white-space:nowrap;
+    transition:background .3s ease, border-color .3s ease;
+  }
+  .btn-primary:hover{ background:rgba(155,109,255,.2); border-color:var(--purple); }
+  .btn-primary.danger{ border-color:rgba(255,109,155,.45); }
+  .btn-primary.danger:hover{ background:rgba(255,109,155,.15); border-color:var(--pink); }
+  .icon-btn{
+    font-size:14px; line-height:1; color:var(--text-dim); background:transparent; border:1px solid var(--card-border);
+    border-radius:8px; padding:8px 11px; cursor:pointer; transition:color .3s ease, border-color .3s ease, background .3s ease;
+  }
+  .icon-btn:hover{ color:var(--text); border-color:var(--purple); background:rgba(155,109,255,.12); }
+
+  select.tool-select, input.tool-input{
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text);
+    background:rgba(255,255,255,.03); border:1px solid var(--card-border); border-radius:8px; padding:7px 9px;
+  }
+  select.tool-select{ max-width:150px; }
+  input.tool-input[type="number"]{ width:60px; }
+  input.tool-input[type="color"]{ width:36px; height:32px; padding:2px; cursor:pointer; }
+
+  .stage-area{
+    display:flex; align-items:center; justify-content:center;
+    background:var(--card-bg); border:1px solid var(--card-border); border-radius:20px;
+    min-height:60vh; padding:24px; position:relative; overflow:hidden;
+  }
+  .drop-hint{
+    font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center;
+    padding:40px; letter-spacing:.03em; line-height:1.8; cursor:pointer;
+  }
+  .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
+  #editorCanvas{ display:none; border-radius:10px; max-width:100%; }
+
+  .status-msg{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text-dim); line-height:1.6; }
+  .status-msg.error{ color:var(--pink); }
+  .status-msg.ok{ color:var(--blue); }
+
+  @media(max-width:900px){
+    .toolbar{ gap:8px; }
+    .toolbar-group{ border-right:none; padding-right:0; flex-wrap:wrap; }
+  }
+</style>
+</head>
+<body>
+
+<video class="bg-video" src="../assets/img/background/binary_rain.mp4" muted loop autoplay playsinline></video>
+<div class="bg-tint"></div>
+<canvas id="field"></canvas>
+<div class="cursor-glow" id="glow"></div>
+
+<header class="page-head">
+  <h1 class="page-title">Image Editor <span style="font-size:12px; font-family:'JetBrains Mono',monospace; color:var(--text-dim); opacity:.6; text-transform:uppercase; letter-spacing:.08em; vertical-align:middle;">— prototype</span></h1>
+  <nav class="main-nav">
+    <ul>
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="../tools.html" class="active">Tools</a></li>
+      <li><a href="../mods.html">Mods</a></li>
+      <li><a href="../apps.html">Apps</a></li>
+      <li><a href="../index.html#contact">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="go-back-inline"><a href="../tools.html">← Go back</a></div>
+
+<div class="editor-wrap">
+  <p class="status-msg" id="statusMsg">You upload an image, edit it right here — crop, add text — and download the result. Nothing is ever sent to a server.</p>
+
+  <div class="toolbar" id="toolbar">
+    <div class="toolbar-group">
+      <span class="toolbar-label">Image</span>
+      <button class="icon-btn" id="changeImgBtn" title="Change image">🖼️</button>
+      <button class="btn-primary" id="downloadBtn">Download PNG</button>
+    </div>
+
+    <div class="toolbar-group">
+      <span class="toolbar-label">Crop</span>
+      <button class="btn-primary" id="cropBtn">Crop</button>
+      <button class="btn-primary" id="applyCropBtn" style="display:none;">Apply</button>
+      <button class="btn-primary danger" id="cancelCropBtn" style="display:none;">Cancel</button>
+    </div>
+
+    <div class="toolbar-group">
+      <span class="toolbar-label">Text</span>
+      <button class="btn-primary" id="addTextBtn">+ Text</button>
+    </div>
+
+    <div class="toolbar-group" id="textPanel" style="display:none;">
+      <span class="toolbar-label">Style</span>
+      <select class="tool-select" id="fontSelect"></select>
+      <input class="tool-input" type="number" id="sizeInput" min="6" max="300" value="32" title="Font size">
+      <input class="tool-input" type="color" id="colorInput" value="#ffffff" title="Text color">
+      <button class="icon-btn" id="deleteObjBtn" title="Delete selected">🗑️</button>
+    </div>
+  </div>
+
+  <div class="stage-area" id="stageArea">
+    <div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop an image here</div>
+    <canvas id="editorCanvas"></canvas>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept="image/*" style="display:none;">
+
+<script src="../assets/js/site.js"></script>
+<script type="module">
+// PROTOTYPE — Fabric.js v6, loaded as an ES module straight from jsDelivr (+esm build), same CDN
+// pattern used elsewhere on this site. Fabric handles the actual canvas object model (move, resize,
+// select, text editing); everything here just wires up our own toolbar to it, styled to match the
+// rest of the site instead of any pre-built editor UI.
+//
+// v1 scope on purpose: crop + text only, to get feedback on the overall approach before adding
+// flip/rotate/draw/shapes on top of the same base.
+
+import { Canvas, FabricImage, Textbox, Rect } from 'https://cdn.jsdelivr.net/npm/fabric@6/+esm';
+
+const statusMsg = document.getElementById('statusMsg');
+const toolbar = document.getElementById('toolbar');
+const stageArea = document.getElementById('stageArea');
+const dropHint = document.getElementById('dropHint');
+const canvasEl = document.getElementById('editorCanvas');
+const fileInput = document.getElementById('fileInput');
+const changeImgBtn = document.getElementById('changeImgBtn');
+const downloadBtn = document.getElementById('downloadBtn');
+const cropBtn = document.getElementById('cropBtn');
+const applyCropBtn = document.getElementById('applyCropBtn');
+const cancelCropBtn = document.getElementById('cancelCropBtn');
+const addTextBtn = document.getElementById('addTextBtn');
+const textPanel = document.getElementById('textPanel');
+const fontSelect = document.getElementById('fontSelect');
+const sizeInput = document.getElementById('sizeInput');
+const colorInput = document.getElementById('colorInput');
+const deleteObjBtn = document.getElementById('deleteObjBtn');
+
+// a small curated set covering a few different moods — every one of these is a free Google Font
+// (OFL/Apache licensed), fine for personal or commercial use, no font-hunting needed.
+const GOOGLE_FONTS = [
+  { name: 'Inter', css: 'Inter:wght@400;700' },
+  { name: 'Poppins', css: 'Poppins:wght@400;700' },
+  { name: 'Playfair Display', css: 'Playfair+Display:wght@400;700' },
+  { name: 'Bebas Neue', css: 'Bebas+Neue' },
+  { name: 'Anton', css: 'Anton' },
+  { name: 'Oswald', css: 'Oswald:wght@400;700' },
+  { name: 'Caveat', css: 'Caveat:wght@400;700' },
+  { name: 'Pacifico', css: 'Pacifico' },
+  { name: 'Roboto Mono', css: 'Roboto+Mono:wght@400;700' },
+  { name: 'Merriweather', css: 'Merriweather:wght@400;700' }
+];
+GOOGLE_FONTS.forEach(f => {
+  const opt = document.createElement('option');
+  opt.value = f.name; opt.textContent = f.name;
+  fontSelect.appendChild(opt);
+});
+
+const loadedFonts = new Set(['Inter']); // Inter-ish fallback is close enough to the page's own font stack pre-load
+function ensureFontLoaded(name){
+  const entry = GOOGLE_FONTS.find(f => f.name === name);
+  if(!entry || loadedFonts.has(name)) return Promise.resolve();
+  return new Promise(resolve => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${entry.css}&display=swap`;
+    link.onload = () => {
+      document.fonts.load(`16px "${name}"`).then(() => { loadedFonts.add(name); resolve(); }).catch(() => resolve());
+    };
+    link.onerror = () => resolve();
+    document.head.appendChild(link);
+  });
+}
+
+function setStatus(msg, type){
+  statusMsg.textContent = msg;
+  statusMsg.className = 'status-msg' + (type ? ' ' + type : '');
+}
+
+let fcanvas = null;
+let cropRect = null;
+let cropping = false;
+
+function initCanvas(imgUrl, naturalW, naturalH){
+  if(fcanvas){ fcanvas.dispose(); fcanvas = null; }
+
+  const maxW = Math.min(stageArea.clientWidth - 48, 1000);
+  const maxH = Math.min(window.innerHeight * 0.65, 900);
+  const scale = Math.min(1, maxW / naturalW, maxH / naturalH);
+  const w = Math.max(1, Math.round(naturalW * scale));
+  const h = Math.max(1, Math.round(naturalH * scale));
+
+  canvasEl.width = w; canvasEl.height = h;
+  canvasEl.style.display = 'block';
+  dropHint.style.display = 'none';
+
+  fcanvas = new Canvas(canvasEl, { preserveObjectStacking: true, selection: true });
+  fcanvas.setWidth(w); fcanvas.setHeight(h);
+
+  return FabricImage.fromURL(imgUrl, { crossOrigin: 'anonymous' }).then(img => {
+    img.set({ left: 0, top: 0, scaleX: w / naturalW, scaleY: h / naturalH, selectable: false, evented: false });
+    fcanvas.add(img);
+    if(fcanvas.sendObjectToBack) fcanvas.sendObjectToBack(img);
+    fcanvas.renderAll();
+
+    fcanvas.on('selection:created', updateTextPanel);
+    fcanvas.on('selection:updated', updateTextPanel);
+    fcanvas.on('selection:cleared', () => { textPanel.style.display = 'none'; });
+  });
+}
+
+function updateTextPanel(){
+  const obj = fcanvas.getActiveObject();
+  if(obj && obj.type === 'textbox'){
+    textPanel.style.display = 'flex';
+    fontSelect.value = obj.fontFamily || 'Inter';
+    sizeInput.value = Math.round(obj.fontSize || 32);
+    colorInput.value = (obj.fill && obj.fill.startsWith && obj.fill.startsWith('#')) ? obj.fill : '#ffffff';
+  } else {
+    textPanel.style.display = 'none';
+  }
+}
+
+function loadImageFile(file){
+  if(!file.type.startsWith('image/')){ setStatus('Please upload an image file.', 'error'); return; }
+  const url = URL.createObjectURL(file);
+  const probe = new Image();
+  probe.onload = () => {
+    initCanvas(url, probe.naturalWidth, probe.naturalHeight).then(() => {
+      toolbar.style.display = 'flex';
+      setStatus('Loaded. Add text, crop, then download when you\'re happy with it.', 'ok');
+    }).catch(err => {
+      setStatus('Something went wrong loading that into the editor (' + (err && err.message ? err.message : err) + ').', 'error');
+    });
+  };
+  probe.onerror = () => setStatus('That file doesn\'t look like a valid image.', 'error');
+  probe.src = url;
+}
+
+dropHint.addEventListener('click', () => fileInput.click());
+stageArea.addEventListener('dragover', e => e.preventDefault());
+stageArea.addEventListener('drop', e => {
+  e.preventDefault();
+  if(e.dataTransfer.files[0]) loadImageFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if(fileInput.files[0]) loadImageFile(fileInput.files[0]); });
+changeImgBtn.addEventListener('click', () => fileInput.click());
+
+downloadBtn.addEventListener('click', () => {
+  if(!fcanvas) return;
+  const dataUrl = fcanvas.toDataURL({ format: 'png', multiplier: 1 });
+  const a = document.createElement('a');
+  a.href = dataUrl; a.download = 'edited.png';
+  document.body.appendChild(a); a.click(); a.remove();
+});
+
+addTextBtn.addEventListener('click', () => {
+  if(!fcanvas) return;
+  const t = new Textbox('Double-click to edit', {
+    left: fcanvas.width / 2 - 100, top: fcanvas.height / 2 - 20,
+    width: 200, fontSize: 32, fill: '#ffffff', fontFamily: 'Inter', textAlign: 'center'
+  });
+  fcanvas.add(t);
+  fcanvas.setActiveObject(t);
+  fcanvas.renderAll();
+  updateTextPanel();
+});
+
+fontSelect.addEventListener('change', async () => {
+  const obj = fcanvas && fcanvas.getActiveObject();
+  if(!obj || obj.type !== 'textbox') return;
+  await ensureFontLoaded(fontSelect.value);
+  obj.set('fontFamily', fontSelect.value);
+  fcanvas.renderAll();
+});
+sizeInput.addEventListener('input', () => {
+  const obj = fcanvas && fcanvas.getActiveObject();
+  if(!obj || obj.type !== 'textbox') return;
+  obj.set('fontSize', parseInt(sizeInput.value, 10) || 32);
+  fcanvas.renderAll();
+});
+colorInput.addEventListener('input', () => {
+  const obj = fcanvas && fcanvas.getActiveObject();
+  if(!obj || obj.type !== 'textbox') return;
+  obj.set('fill', colorInput.value);
+  fcanvas.renderAll();
+});
+deleteObjBtn.addEventListener('click', () => {
+  const obj = fcanvas && fcanvas.getActiveObject();
+  if(!obj) return;
+  fcanvas.remove(obj);
+  fcanvas.discardActiveObject();
+  fcanvas.renderAll();
+  textPanel.style.display = 'none';
+});
+
+document.addEventListener('keydown', e => {
+  if(!fcanvas) return;
+  const obj = fcanvas.getActiveObject();
+  if(!obj || obj.isEditing) return; // don't eat backspace while typing inside a textbox
+  if(e.key === 'Delete' || e.key === 'Backspace'){
+    if(document.activeElement && document.activeElement.tagName === 'INPUT') return;
+    fcanvas.remove(obj);
+    fcanvas.discardActiveObject();
+    fcanvas.renderAll();
+    textPanel.style.display = 'none';
+  }
+});
+
+cropBtn.addEventListener('click', () => {
+  if(!fcanvas || cropping) return;
+  cropping = true;
+  cropBtn.style.display = 'none';
+  applyCropBtn.style.display = 'inline-block';
+  cancelCropBtn.style.display = 'inline-block';
+
+  cropRect = new Rect({
+    left: fcanvas.width * 0.1, top: fcanvas.height * 0.1,
+    width: fcanvas.width * 0.8, height: fcanvas.height * 0.8,
+    fill: 'rgba(155,109,255,0.15)', stroke: '#9b6dff', strokeWidth: 2,
+    strokeDashArray: [6, 4], cornerColor: '#9b6dff', transparentCorners: false
+  });
+  fcanvas.add(cropRect);
+  fcanvas.setActiveObject(cropRect);
+  fcanvas.renderAll();
+});
+
+function endCropUI(){
+  cropping = false;
+  cropBtn.style.display = 'inline-block';
+  applyCropBtn.style.display = 'none';
+  cancelCropBtn.style.display = 'none';
+}
+
+cancelCropBtn.addEventListener('click', () => {
+  if(cropRect){ fcanvas.remove(cropRect); cropRect = null; }
+  fcanvas.discardActiveObject();
+  fcanvas.renderAll();
+  endCropUI();
+});
+
+applyCropBtn.addEventListener('click', () => {
+  if(!fcanvas || !cropRect) return;
+  try{
+    const b = cropRect.getBoundingRect();
+    const newW = Math.max(1, Math.round(b.width));
+    const newH = Math.max(1, Math.round(b.height));
+
+    fcanvas.remove(cropRect);
+    fcanvas.discardActiveObject();
+    fcanvas.renderAll();
+
+    const sourceEl = fcanvas.lowerCanvasEl;
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = newW; outCanvas.height = newH;
+    const octx = outCanvas.getContext('2d');
+    octx.drawImage(sourceEl, b.left, b.top, newW, newH, 0, 0, newW, newH);
+    const croppedDataUrl = outCanvas.toDataURL('image/png');
+
+    fcanvas.clear();
+    fcanvas.setWidth(newW); fcanvas.setHeight(newH);
+    canvasEl.width = newW; canvasEl.height = newH;
+
+    FabricImage.fromURL(croppedDataUrl).then(img => {
+      img.set({ left: 0, top: 0, selectable: false, evented: false });
+      fcanvas.add(img);
+      fcanvas.renderAll();
+    });
+
+    cropRect = null;
+    endCropUI();
+    setStatus('Cropped. Keep editing or download when ready.', 'ok');
+  } catch(err){
+    setStatus('Something went wrong applying the crop (' + (err && err.message ? err.message : err) + ').', 'error');
+    endCropUI();
+  }
+});
+</script>
+</body>
+</html>
