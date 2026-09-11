@@ -4,23 +4,24 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Image Editor — Rwyn's Blog</title>
-<meta name="description" content="A simple browser-based image editor — crop, add text, and more. Nothing ever leaves your browser.">
+<meta name="description" content="A simple browser-based image editor — crop, add text, draw, shapes, and more. Nothing ever leaves your browser.">
 <link rel="icon" type="image/png" href="../assets/img/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link href="../assets/css/site.css" rel="stylesheet">
 <style>
-  header.page-head{ position:relative; z-index:2; max-width:1300px; margin:0 auto; padding:6vh 6vw 2vh; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
+  header.page-head{ position:relative; z-index:2; max-width:1400px; margin:0 auto; padding:6vh 6vw 2vh; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
   header.page-head nav.main-nav ul{ gap:26px; }
-  .go-back-inline{ position:relative; z-index:2; max-width:1300px; margin:0 auto; padding:0 6vw 2vh; }
+  .go-back-inline{ position:relative; z-index:2; max-width:1400px; margin:0 auto; padding:0 6vw 2vh; }
   .go-back-inline a{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px; text-decoration:none; color:var(--text-dim); transition:color .3s ease; }
   .go-back-inline a:hover{ color:var(--purple); }
 
-  /* PROTOTYPE NOTE: controls live in a horizontal bar up top instead of the usual left/right split —
-     during actual editing you want the image big and the tool switches close to your cursor's eyeline,
-     not off to the side. this is intentionally a different skeleton from the other tools. */
-  .editor-wrap{ position:relative; z-index:2; max-width:1300px; margin:0 auto; padding:0 6vw 8vh; display:flex; flex-direction:column; gap:18px; }
+  /* PROTOTYPE NOTE: PS-style split — niche/global actions (image, crop, download) stay in the top bar
+     since most people won't touch them often; per-tool controls (text, draw, shapes, transform) live
+     in a left rail since that's what people reach for constantly while actually editing; layers sit on
+     the right so overlapping objects can be told apart and reordered without guessing on the canvas. */
+  .editor-wrap{ position:relative; z-index:2; max-width:1400px; margin:0 auto; padding:0 6vw 8vh; display:flex; flex-direction:column; gap:16px; }
 
   .toolbar{
     display:none; flex-wrap:wrap; align-items:center; gap:10px;
@@ -28,7 +29,20 @@
   }
   .toolbar-group{ display:flex; align-items:center; gap:8px; padding-right:12px; border-right:1px solid var(--card-border); }
   .toolbar-group:last-child{ border-right:none; padding-right:0; }
-  .toolbar-label{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-dim); margin-right:2px; }
+  .toolbar-label, .tool-section-title{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-dim); }
+  .toolbar-label{ margin-right:2px; }
+
+  .editor-body{ display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+  .side-panel{ flex:0 0 220px; width:220px; display:flex; flex-direction:column; gap:14px; }
+  .stage-col{ flex:1 1 420px; min-width:280px; }
+  .layers-col{ flex:0 0 200px; width:200px; }
+
+  .tool-section{
+    background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:14px;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .tool-btn-row{ display:flex; flex-wrap:wrap; gap:8px; }
+  .style-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 
   .btn-primary{
     font-family:'JetBrains Mono',monospace; font-size:12.5px; font-weight:500; color:var(--text);
@@ -44,12 +58,13 @@
     border-radius:8px; padding:8px 11px; cursor:pointer; transition:color .3s ease, border-color .3s ease, background .3s ease;
   }
   .icon-btn:hover{ color:var(--text); border-color:var(--purple); background:rgba(155,109,255,.12); }
+  .icon-btn.active{ color:var(--text); border-color:var(--purple); background:rgba(155,109,255,.25); }
 
   select.tool-select, input.tool-input{
     font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text);
     background:rgba(255,255,255,.03); border:1px solid var(--card-border); border-radius:8px; padding:7px 9px;
   }
-  select.tool-select{ max-width:150px; }
+  select.tool-select{ max-width:150px; width:100%; }
   input.tool-input[type="number"]{ width:60px; }
   input.tool-input[type="color"]{ width:36px; height:32px; padding:2px; cursor:pointer; }
 
@@ -65,13 +80,31 @@
   .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
   #editorCanvas{ display:none; border-radius:10px; max-width:100%; }
 
+  /* ---- layers panel ---- */
+  .layers-list{ display:flex; flex-direction:column; gap:4px; max-height:60vh; overflow-y:auto; }
+  .layer-row{
+    display:flex; align-items:center; gap:6px; padding:7px 8px; border-radius:8px; cursor:pointer;
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); border:1px solid transparent;
+  }
+  .layer-row:hover{ background:rgba(255,255,255,.04); }
+  .layer-row.active{ background:rgba(155,109,255,.15); color:var(--text); border-color:rgba(155,109,255,.4); }
+  .layer-row.bg-row{ opacity:.5; cursor:default; }
+  .layer-icon{ width:16px; text-align:center; flex:0 0 auto; }
+  .layer-label{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .layer-actions{ display:flex; gap:2px; flex:0 0 auto; }
+  .layer-mini-btn{ background:transparent; border:none; color:var(--text-dim); font-size:10.5px; cursor:pointer; padding:2px 3px; line-height:1; }
+  .layer-mini-btn:hover{ color:var(--text); }
+  .layers-empty{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); opacity:.6; padding:6px 4px; }
+
   .status-msg{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text-dim); line-height:1.6; }
   .status-msg.error{ color:var(--pink); }
   .status-msg.ok{ color:var(--blue); }
 
-  @media(max-width:900px){
-    .toolbar{ gap:8px; }
-    .toolbar-group{ border-right:none; padding-right:0; flex-wrap:wrap; }
+  @media(max-width:1100px){
+    .editor-body{ flex-direction:column; }
+    .side-panel, .layers-col{ width:100%; flex:1 1 auto; }
+    .side-panel{ flex-direction:row; flex-wrap:wrap; }
+    .side-panel .tool-section{ flex:1 1 220px; }
   }
 </style>
 </head>
@@ -98,39 +131,97 @@
 <div class="go-back-inline"><a href="../tools.html">← Go back</a></div>
 
 <div class="editor-wrap">
-  <p class="status-msg" id="statusMsg">You upload an image, edit it right here — crop, add text — and download the result. Nothing is ever sent to a server.</p>
+  <p class="status-msg" id="statusMsg">You upload an image, edit it right here — text, draw, shapes, crop — and download the result. Nothing is ever sent to a server.</p>
 
   <div class="toolbar" id="toolbar">
     <div class="toolbar-group">
       <span class="toolbar-label">Image</span>
       <button class="icon-btn" id="changeImgBtn" title="Change image">🖼️</button>
-      <button class="btn-primary" id="downloadBtn">Download PNG</button>
     </div>
-
     <div class="toolbar-group">
       <span class="toolbar-label">Crop</span>
       <button class="btn-primary" id="cropBtn">Crop</button>
       <button class="btn-primary" id="applyCropBtn" style="display:none;">Apply</button>
       <button class="btn-primary danger" id="cancelCropBtn" style="display:none;">Cancel</button>
     </div>
-
     <div class="toolbar-group">
-      <span class="toolbar-label">Text</span>
-      <button class="btn-primary" id="addTextBtn">+ Text</button>
-    </div>
-
-    <div class="toolbar-group" id="textPanel" style="display:none;">
-      <span class="toolbar-label">Style</span>
-      <select class="tool-select" id="fontSelect"></select>
-      <input class="tool-input" type="number" id="sizeInput" min="6" max="300" value="32" title="Font size">
-      <input class="tool-input" type="color" id="colorInput" value="#ffffff" title="Text color">
-      <button class="icon-btn" id="deleteObjBtn" title="Delete selected">🗑️</button>
+      <span class="toolbar-label">Export</span>
+      <button class="btn-primary" id="downloadBtn">Download PNG</button>
     </div>
   </div>
 
-  <div class="stage-area" id="stageArea">
-    <div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop an image here</div>
-    <canvas id="editorCanvas"></canvas>
+  <div class="editor-body">
+    <div class="side-panel">
+      <div class="tool-section">
+        <span class="tool-section-title">Add</span>
+        <div class="tool-btn-row">
+          <button class="btn-primary" id="addTextBtn">+ Text</button>
+          <button class="icon-btn" id="drawToggleBtn" title="Freehand draw">✎ Draw</button>
+        </div>
+        <div class="tool-btn-row">
+          <button class="icon-btn" id="addRectBtn" title="Rectangle">▭</button>
+          <button class="icon-btn" id="addCircleBtn" title="Circle">◯</button>
+          <button class="icon-btn" id="addLineBtn" title="Line">╱</button>
+          <input class="tool-input" type="color" id="shapeColorInput" value="#9b6dff" title="Shape/line color">
+        </div>
+      </div>
+
+      <div class="tool-section" id="brushGroup" style="display:none;">
+        <span class="tool-section-title">Brush</span>
+        <div class="style-row">
+          <input class="tool-input" type="color" id="brushColorInput" value="#ffffff" title="Brush color">
+          <input class="tool-input" type="number" id="brushSizeInput" min="1" max="100" value="6" title="Brush size">
+        </div>
+      </div>
+
+      <div class="tool-section">
+        <span class="tool-section-title">Transform</span>
+        <div class="tool-btn-row">
+          <button class="icon-btn" id="flipHBtn" title="Flip horizontal">⇋</button>
+          <button class="icon-btn" id="flipVBtn" title="Flip vertical">⇵</button>
+          <button class="icon-btn" id="rotateCCWBtn" title="Rotate -90°">⟲</button>
+          <button class="icon-btn" id="rotateCWBtn" title="Rotate +90°">⟳</button>
+        </div>
+        <span class="status-msg" style="font-size:10.5px; opacity:.6;">Applies to the selected layer, or the whole image if nothing's selected.</span>
+      </div>
+
+      <div class="tool-section" id="textStyleGroup" style="display:none;">
+        <span class="tool-section-title">Text style</span>
+        <div class="style-row">
+          <select class="tool-select" id="fontSelect"></select>
+        </div>
+        <div class="style-row">
+          <input class="tool-input" type="number" id="sizeInput" min="6" max="300" value="32" title="Font size">
+          <input class="tool-input" type="color" id="colorInput" value="#ffffff" title="Text color">
+          <button class="icon-btn" id="deleteObjBtn" title="Delete selected">🗑️</button>
+        </div>
+      </div>
+
+      <div class="tool-section" id="shapeStyleGroup" style="display:none;">
+        <span class="tool-section-title">Shape style</span>
+        <div class="style-row">
+          <span class="toolbar-label" style="margin:0;">Color</span>
+          <input class="tool-input" type="color" id="shapeSelectedColorInput" title="Selected shape color">
+          <button class="icon-btn" id="deleteShapeBtn" title="Delete selected">🗑️</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-col">
+      <div class="stage-area" id="stageArea">
+        <div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop an image here</div>
+        <canvas id="editorCanvas"></canvas>
+      </div>
+    </div>
+
+    <div class="layers-col">
+      <div class="tool-section">
+        <span class="tool-section-title">Layers</span>
+        <div class="layers-list" id="layersList">
+          <div class="layers-empty">Nothing here yet.</div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -138,15 +229,14 @@
 
 <script src="../assets/js/site.js"></script>
 <script type="module">
-// PROTOTYPE — Fabric.js v6, loaded as an ES module straight from jsDelivr (+esm build), same CDN
-// pattern used elsewhere on this site. Fabric handles the actual canvas object model (move, resize,
-// select, text editing); everything here just wires up our own toolbar to it, styled to match the
-// rest of the site instead of any pre-built editor UI.
+// PROTOTYPE v2 — same Fabric.js v6 base as v1, restructured into a PS-style layout: niche/global
+// actions (image/crop/download) stay in the top bar, per-tool controls move to a left rail, and a
+// right-hand layers panel lists every object so overlapping stuff can be told apart and reordered.
 //
-// v1 scope on purpose: crop + text only, to get feedback on the overall approach before adding
-// flip/rotate/draw/shapes on top of the same base.
+// honest limitations: layer reordering uses up/down buttons rather than drag-and-drop (simpler to get
+// right for a first pass); the layers list doesn't show thumbnails, just a type icon + short label.
 
-import { Canvas, FabricImage, Textbox, Rect } from 'https://cdn.jsdelivr.net/npm/fabric@6/+esm';
+import { Canvas, FabricImage, Textbox, Rect, Circle, Line, PencilBrush } from 'https://cdn.jsdelivr.net/npm/fabric@6/+esm';
 
 const statusMsg = document.getElementById('statusMsg');
 const toolbar = document.getElementById('toolbar');
@@ -159,12 +249,34 @@ const downloadBtn = document.getElementById('downloadBtn');
 const cropBtn = document.getElementById('cropBtn');
 const applyCropBtn = document.getElementById('applyCropBtn');
 const cancelCropBtn = document.getElementById('cancelCropBtn');
+
 const addTextBtn = document.getElementById('addTextBtn');
-const textPanel = document.getElementById('textPanel');
+const drawToggleBtn = document.getElementById('drawToggleBtn');
+const addRectBtn = document.getElementById('addRectBtn');
+const addCircleBtn = document.getElementById('addCircleBtn');
+const addLineBtn = document.getElementById('addLineBtn');
+const shapeColorInput = document.getElementById('shapeColorInput');
+
+const brushGroup = document.getElementById('brushGroup');
+const brushColorInput = document.getElementById('brushColorInput');
+const brushSizeInput = document.getElementById('brushSizeInput');
+
+const flipHBtn = document.getElementById('flipHBtn');
+const flipVBtn = document.getElementById('flipVBtn');
+const rotateCCWBtn = document.getElementById('rotateCCWBtn');
+const rotateCWBtn = document.getElementById('rotateCWBtn');
+
+const textStyleGroup = document.getElementById('textStyleGroup');
 const fontSelect = document.getElementById('fontSelect');
 const sizeInput = document.getElementById('sizeInput');
 const colorInput = document.getElementById('colorInput');
 const deleteObjBtn = document.getElementById('deleteObjBtn');
+
+const shapeStyleGroup = document.getElementById('shapeStyleGroup');
+const shapeSelectedColorInput = document.getElementById('shapeSelectedColorInput');
+const deleteShapeBtn = document.getElementById('deleteShapeBtn');
+
+const layersList = document.getElementById('layersList');
 
 // a small curated set covering a few different moods — every one of these is a free Google Font
 // (OFL/Apache licensed), fine for personal or commercial use, no font-hunting needed.
@@ -186,7 +298,7 @@ GOOGLE_FONTS.forEach(f => {
   fontSelect.appendChild(opt);
 });
 
-const loadedFonts = new Set(['Inter']); // Inter-ish fallback is close enough to the page's own font stack pre-load
+const loadedFonts = new Set(['Inter']);
 function ensureFontLoaded(name){
   const entry = GOOGLE_FONTS.find(f => f.name === name);
   if(!entry || loadedFonts.has(name)) return Promise.resolve();
@@ -206,16 +318,19 @@ function setStatus(msg, type){
   statusMsg.textContent = msg;
   statusMsg.className = 'status-msg' + (type ? ' ' + type : '');
 }
+function normalizeHex(v){ return (typeof v === 'string' && v.startsWith('#')) ? v : null; }
 
 let fcanvas = null;
+let bgImageRef = null;
 let cropRect = null;
 let cropping = false;
+let drawMode = false;
 
 function initCanvas(imgUrl, naturalW, naturalH){
   if(fcanvas){ fcanvas.dispose(); fcanvas = null; }
 
   const maxW = Math.min(stageArea.clientWidth - 48, 1000);
-  const maxH = Math.min(window.innerHeight * 0.65, 900);
+  const maxH = Math.min(window.innerHeight * 0.62, 850);
   const scale = Math.min(1, maxW / naturalW, maxH / naturalH);
   const w = Math.max(1, Math.round(naturalW * scale));
   const h = Math.max(1, Math.round(naturalH * scale));
@@ -227,28 +342,120 @@ function initCanvas(imgUrl, naturalW, naturalH){
   fcanvas = new Canvas(canvasEl, { preserveObjectStacking: true, selection: true });
   fcanvas.setWidth(w); fcanvas.setHeight(h);
 
+  fcanvas.on('selection:created', onSelectionChange);
+  fcanvas.on('selection:updated', onSelectionChange);
+  fcanvas.on('selection:cleared', onSelectionChange);
+  fcanvas.on('object:added', refreshLayers);
+  fcanvas.on('object:removed', refreshLayers);
+  fcanvas.on('path:created', refreshLayers);
+
   return FabricImage.fromURL(imgUrl, { crossOrigin: 'anonymous' }).then(img => {
     img.set({ left: 0, top: 0, scaleX: w / naturalW, scaleY: h / naturalH, selectable: false, evented: false });
+    img.isBackground = true;
+    bgImageRef = img;
     fcanvas.add(img);
     if(fcanvas.sendObjectToBack) fcanvas.sendObjectToBack(img);
     fcanvas.renderAll();
-
-    fcanvas.on('selection:created', updateTextPanel);
-    fcanvas.on('selection:updated', updateTextPanel);
-    fcanvas.on('selection:cleared', () => { textPanel.style.display = 'none'; });
   });
 }
 
-function updateTextPanel(){
-  const obj = fcanvas.getActiveObject();
-  if(obj && obj.type === 'textbox'){
-    textPanel.style.display = 'flex';
+function onSelectionChange(){
+  updateStylePanels();
+  refreshLayers();
+}
+
+function updateStylePanels(){
+  const obj = fcanvas && fcanvas.getActiveObject();
+  const isText = !!(obj && obj.type === 'textbox');
+  const isShape = !!(obj && ['rect', 'circle', 'line'].includes(obj.type));
+  textStyleGroup.style.display = isText ? 'flex' : 'none';
+  shapeStyleGroup.style.display = isShape ? 'flex' : 'none';
+  if(isText){
     fontSelect.value = obj.fontFamily || 'Inter';
     sizeInput.value = Math.round(obj.fontSize || 32);
-    colorInput.value = (obj.fill && obj.fill.startsWith && obj.fill.startsWith('#')) ? obj.fill : '#ffffff';
-  } else {
-    textPanel.style.display = 'none';
+    colorInput.value = normalizeHex(obj.fill) || '#ffffff';
   }
+  if(isShape){
+    const val = obj.type === 'line' ? obj.stroke : obj.fill;
+    shapeSelectedColorInput.value = normalizeHex(val) || '#9b6dff';
+  }
+}
+
+function refreshLayers(){
+  layersList.innerHTML = '';
+  if(!fcanvas){ layersList.innerHTML = '<div class="layers-empty">Nothing here yet.</div>'; return; }
+  const objs = fcanvas.getObjects().filter(o => !o.isCropRect);
+  if(objs.length === 0){ layersList.innerHTML = '<div class="layers-empty">Nothing here yet.</div>'; return; }
+  const active = fcanvas.getActiveObject();
+
+  for(let i = objs.length - 1; i >= 0; i--){
+    const obj = objs[i];
+    const row = document.createElement('div');
+    row.className = 'layer-row' + (obj === active ? ' active' : '') + (obj.isBackground ? ' bg-row' : '');
+
+    const icon = obj.isBackground ? '🖼️' : obj.type === 'textbox' ? 'T' : obj.type === 'rect' ? '▭' : obj.type === 'circle' ? '◯' : obj.type === 'line' ? '╱' : obj.type === 'path' ? '✎' : '●';
+    const label = obj.isBackground ? 'Background' : (obj.type === 'textbox' ? (obj.text || 'Text').slice(0, 16) : obj.type);
+
+    const iconSpan = document.createElement('span'); iconSpan.className = 'layer-icon'; iconSpan.textContent = icon;
+    const labelSpan = document.createElement('span'); labelSpan.className = 'layer-label'; labelSpan.textContent = label;
+    row.appendChild(iconSpan); row.appendChild(labelSpan);
+
+    if(!obj.isBackground){
+      const actions = document.createElement('span'); actions.className = 'layer-actions';
+
+      const eyeBtn = document.createElement('button');
+      eyeBtn.className = 'layer-mini-btn'; eyeBtn.title = 'Toggle visibility';
+      eyeBtn.textContent = obj.visible === false ? '🚫' : '👁️';
+      eyeBtn.addEventListener('click', ev => {
+        ev.stopPropagation();
+        obj.visible = obj.visible === false;
+        fcanvas.renderAll();
+        refreshLayers();
+      });
+
+      const upBtn = document.createElement('button');
+      upBtn.className = 'layer-mini-btn'; upBtn.title = 'Bring forward'; upBtn.textContent = '▲';
+      upBtn.addEventListener('click', ev => { ev.stopPropagation(); reorder(obj, 'up'); });
+
+      const downBtn = document.createElement('button');
+      downBtn.className = 'layer-mini-btn'; downBtn.title = 'Send backward'; downBtn.textContent = '▼';
+      downBtn.addEventListener('click', ev => { ev.stopPropagation(); reorder(obj, 'down'); });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'layer-mini-btn'; delBtn.title = 'Delete'; delBtn.textContent = '🗑️';
+      delBtn.addEventListener('click', ev => {
+        ev.stopPropagation();
+        fcanvas.remove(obj);
+        fcanvas.discardActiveObject();
+        fcanvas.renderAll();
+        updateStylePanels();
+      });
+
+      actions.appendChild(eyeBtn); actions.appendChild(upBtn); actions.appendChild(downBtn); actions.appendChild(delBtn);
+      row.appendChild(actions);
+
+      row.addEventListener('click', () => {
+        fcanvas.setActiveObject(obj);
+        fcanvas.renderAll();
+        onSelectionChange();
+      });
+    }
+
+    layersList.appendChild(row);
+  }
+}
+
+function reorder(obj, dir){
+  if(!fcanvas) return;
+  if(dir === 'up'){
+    if(fcanvas.bringObjectForward) fcanvas.bringObjectForward(obj);
+    else if(obj.bringForward) obj.bringForward();
+  } else {
+    if(fcanvas.sendObjectBackwards) fcanvas.sendObjectBackwards(obj);
+    else if(obj.sendBackwards) obj.sendBackwards();
+  }
+  fcanvas.renderAll();
+  refreshLayers();
 }
 
 function loadImageFile(file){
@@ -258,7 +465,7 @@ function loadImageFile(file){
   probe.onload = () => {
     initCanvas(url, probe.naturalWidth, probe.naturalHeight).then(() => {
       toolbar.style.display = 'flex';
-      setStatus('Loaded. Add text, crop, then download when you\'re happy with it.', 'ok');
+      setStatus('Loaded. Add text, draw, drop in shapes, or crop — download when you\'re happy with it.', 'ok');
     }).catch(err => {
       setStatus('Something went wrong loading that into the editor (' + (err && err.message ? err.message : err) + ').', 'error');
     });
@@ -284,6 +491,7 @@ downloadBtn.addEventListener('click', () => {
   document.body.appendChild(a); a.click(); a.remove();
 });
 
+// ---- text ----
 addTextBtn.addEventListener('click', () => {
   if(!fcanvas) return;
   const t = new Textbox('Double-click to edit', {
@@ -293,9 +501,8 @@ addTextBtn.addEventListener('click', () => {
   fcanvas.add(t);
   fcanvas.setActiveObject(t);
   fcanvas.renderAll();
-  updateTextPanel();
+  onSelectionChange();
 });
-
 fontSelect.addEventListener('change', async () => {
   const obj = fcanvas && fcanvas.getActiveObject();
   if(!obj || obj.type !== 'textbox') return;
@@ -315,14 +522,16 @@ colorInput.addEventListener('input', () => {
   obj.set('fill', colorInput.value);
   fcanvas.renderAll();
 });
-deleteObjBtn.addEventListener('click', () => {
+deleteObjBtn.addEventListener('click', () => deleteActive());
+deleteShapeBtn.addEventListener('click', () => deleteActive());
+function deleteActive(){
   const obj = fcanvas && fcanvas.getActiveObject();
   if(!obj) return;
   fcanvas.remove(obj);
   fcanvas.discardActiveObject();
   fcanvas.renderAll();
-  textPanel.style.display = 'none';
-});
+  updateStylePanels();
+}
 
 document.addEventListener('keydown', e => {
   if(!fcanvas) return;
@@ -330,13 +539,59 @@ document.addEventListener('keydown', e => {
   if(!obj || obj.isEditing) return; // don't eat backspace while typing inside a textbox
   if(e.key === 'Delete' || e.key === 'Backspace'){
     if(document.activeElement && document.activeElement.tagName === 'INPUT') return;
-    fcanvas.remove(obj);
-    fcanvas.discardActiveObject();
-    fcanvas.renderAll();
-    textPanel.style.display = 'none';
+    deleteActive();
   }
 });
 
+// ---- shapes ----
+addRectBtn.addEventListener('click', () => {
+  if(!fcanvas) return;
+  const r = new Rect({ left: fcanvas.width / 2 - 60, top: fcanvas.height / 2 - 40, width: 120, height: 80, fill: shapeColorInput.value });
+  fcanvas.add(r); fcanvas.setActiveObject(r); fcanvas.renderAll(); onSelectionChange();
+});
+addCircleBtn.addEventListener('click', () => {
+  if(!fcanvas) return;
+  const c = new Circle({ left: fcanvas.width / 2 - 50, top: fcanvas.height / 2 - 50, radius: 50, fill: shapeColorInput.value });
+  fcanvas.add(c); fcanvas.setActiveObject(c); fcanvas.renderAll(); onSelectionChange();
+});
+addLineBtn.addEventListener('click', () => {
+  if(!fcanvas) return;
+  const cx = fcanvas.width / 2, cy = fcanvas.height / 2;
+  const l = new Line([cx - 60, cy, cx + 60, cy], { stroke: shapeColorInput.value, strokeWidth: 4 });
+  fcanvas.add(l); fcanvas.setActiveObject(l); fcanvas.renderAll(); onSelectionChange();
+});
+shapeSelectedColorInput.addEventListener('input', () => {
+  const obj = fcanvas && fcanvas.getActiveObject();
+  if(!obj) return;
+  if(obj.type === 'line') obj.set('stroke', shapeSelectedColorInput.value);
+  else if(obj.type === 'rect' || obj.type === 'circle') obj.set('fill', shapeSelectedColorInput.value);
+  fcanvas.renderAll();
+});
+
+// ---- freehand draw ----
+drawToggleBtn.addEventListener('click', () => {
+  if(!fcanvas) return;
+  drawMode = !drawMode;
+  fcanvas.isDrawingMode = drawMode;
+  if(drawMode){
+    if(!fcanvas.freeDrawingBrush) fcanvas.freeDrawingBrush = new PencilBrush(fcanvas);
+    fcanvas.freeDrawingBrush.color = brushColorInput.value;
+    fcanvas.freeDrawingBrush.width = parseInt(brushSizeInput.value, 10) || 6;
+  }
+  drawToggleBtn.classList.toggle('active', drawMode);
+  brushGroup.style.display = drawMode ? 'flex' : 'none';
+});
+brushColorInput.addEventListener('input', () => { if(fcanvas && fcanvas.freeDrawingBrush) fcanvas.freeDrawingBrush.color = brushColorInput.value; });
+brushSizeInput.addEventListener('input', () => { if(fcanvas && fcanvas.freeDrawingBrush) fcanvas.freeDrawingBrush.width = parseInt(brushSizeInput.value, 10) || 6; });
+
+// ---- transform (applies to selection, falls back to the whole image) ----
+function getTransformTarget(){ return (fcanvas && fcanvas.getActiveObject()) || bgImageRef; }
+flipHBtn.addEventListener('click', () => { const t = getTransformTarget(); if(!t || !fcanvas) return; t.set('flipX', !t.flipX); fcanvas.renderAll(); });
+flipVBtn.addEventListener('click', () => { const t = getTransformTarget(); if(!t || !fcanvas) return; t.set('flipY', !t.flipY); fcanvas.renderAll(); });
+rotateCCWBtn.addEventListener('click', () => { const t = getTransformTarget(); if(!t || !fcanvas) return; t.rotate(((t.angle || 0) - 90 + 360) % 360); fcanvas.renderAll(); });
+rotateCWBtn.addEventListener('click', () => { const t = getTransformTarget(); if(!t || !fcanvas) return; t.rotate(((t.angle || 0) + 90) % 360); fcanvas.renderAll(); });
+
+// ---- crop ----
 cropBtn.addEventListener('click', () => {
   if(!fcanvas || cropping) return;
   cropping = true;
@@ -350,6 +605,7 @@ cropBtn.addEventListener('click', () => {
     fill: 'rgba(155,109,255,0.15)', stroke: '#9b6dff', strokeWidth: 2,
     strokeDashArray: [6, 4], cornerColor: '#9b6dff', transparentCorners: false
   });
+  cropRect.isCropRect = true;
   fcanvas.add(cropRect);
   fcanvas.setActiveObject(cropRect);
   fcanvas.renderAll();
@@ -387,12 +643,16 @@ applyCropBtn.addEventListener('click', () => {
     octx.drawImage(sourceEl, b.left, b.top, newW, newH, 0, 0, newW, newH);
     const croppedDataUrl = outCanvas.toDataURL('image/png');
 
+    // crop flattens everything (text/shapes/drawing included) into the new base image — a from-scratch
+    // re-edit after cropping, same tradeoff as v1
     fcanvas.clear();
     fcanvas.setWidth(newW); fcanvas.setHeight(newH);
     canvasEl.width = newW; canvasEl.height = newH;
 
     FabricImage.fromURL(croppedDataUrl).then(img => {
       img.set({ left: 0, top: 0, selectable: false, evented: false });
+      img.isBackground = true;
+      bgImageRef = img;
       fcanvas.add(img);
       fcanvas.renderAll();
     });
