@@ -179,6 +179,7 @@
   .icon-eye-off{ -webkit-mask-image:url('../assets/img/resources/icon-eye-off.svg'); mask-image:url('../assets/img/resources/icon-eye-off.svg'); }
   .icon-duplicate{ -webkit-mask-image:url('../assets/img/resources/icon-duplicate.svg'); mask-image:url('../assets/img/resources/icon-duplicate.svg'); }
   .icon-transform{ -webkit-mask-image:url('../assets/img/resources/icon-transform.svg'); mask-image:url('../assets/img/resources/icon-transform.svg'); }
+  .icon-effects{ -webkit-mask-image:url('../assets/img/resources/icon-effects.svg'); mask-image:url('../assets/img/resources/icon-effects.svg'); }
 </style>
 </head>
 <body>
@@ -239,6 +240,7 @@
           <button class="rail-btn has-tip" data-tool="draw" data-tip="Draw (B)">✎</button>
           <button class="rail-btn has-tip" data-tool="image" data-tip="Add image layer (I)"><span class="icon-mask icon-image"></span></button>
           <button class="rail-btn has-tip" data-tool="transform" data-tip="Transform (R)"><span class="icon-mask icon-transform"></span></button>
+          <button class="rail-btn has-tip" data-tool="effects" data-tip="Effects (E)"><span class="icon-mask icon-effects"></span></button>
         </div>
 
         <div class="tool-flyout">
@@ -314,6 +316,22 @@
               <button class="icon-btn has-tip" data-tip="Rotate +90°" id="rotateCWBtn">⟳</button>
             </div>
             <span class="flyout-hint">Flip/rotate apply to the selected layer, or the whole image if nothing's selected (and resize the canvas so nothing clips).</span>
+          </div>
+
+          <div class="flyout-panel" id="effectsFlyout">
+            <div class="tool-btn-row">
+              <button class="btn-primary" id="mosaicModeBtn">Mosaic</button>
+              <button class="btn-primary" id="blurModeBtn">Blur</button>
+            </div>
+            <div class="style-row">
+              <span class="toolbar-label" id="effectIntensityLabel" style="margin:0;">Block size</span>
+              <input type="range" id="effectIntensityInput" min="2" max="60" value="14" style="flex:1;">
+            </div>
+            <div class="tool-btn-row" id="effectApplyRow" style="display:none;">
+              <button class="btn-primary" id="applyEffectBtn">Apply</button>
+              <button class="btn-primary danger" id="cancelEffectBtn">Cancel</button>
+            </div>
+            <span class="flyout-hint">Pick Mosaic or Blur, drag the box on the canvas over the area to cover, then Apply. It bakes into a new layer on top of whatever's visible there right now — it won't follow if you move other layers around afterward, and there's no live re-editing the strength after the fact (delete the layer and reapply for a different setting).</span>
           </div>
         </div>
       </div>
@@ -397,6 +415,13 @@
 
 <script src="../assets/js/site.js"></script>
 <script type="module">
+// v7 — added an Effects tool: Mosaic and Blur, applied to a user-dragged selection box. Both bake
+// into a new image layer positioned over the selection (not a whole-canvas flatten like crop/
+// rotate), so they stay movable/deletable/undoable like any other layer. Mosaic is a straight
+// downsample+upsample with imageSmoothingEnabled off; Blur uses the canvas 2D context's built-in
+// filter, sampling a padded region around the selection so the blur has real pixels at the edges
+// instead of clamping.
+//
 // v6 — out of prototype, linked from tools.html. Added text outline opacity (separate rgba
 // stroke, independent from the layer's overall Opacity slider), letter spacing + line height for
 // text, a Blend mode dropdown and a Duplicate button for the selected layer, and swapped the emoji
@@ -442,7 +467,8 @@ const shapesFlyout = document.getElementById('shapesFlyout');
 const drawFlyout = document.getElementById('drawFlyout');
 const imageFlyout = document.getElementById('imageFlyout');
 const transformFlyout = document.getElementById('transformFlyout');
-const flyouts = { select: selectFlyout, text: textFlyout, shapes: shapesFlyout, draw: drawFlyout, image: imageFlyout, transform: transformFlyout };
+const effectsFlyout = document.getElementById('effectsFlyout');
+const flyouts = { select: selectFlyout, text: textFlyout, shapes: shapesFlyout, draw: drawFlyout, image: imageFlyout, transform: transformFlyout, effects: effectsFlyout };
 
 const addTextBtn = document.getElementById('addTextBtn');
 const addRectBtn = document.getElementById('addRectBtn');
@@ -461,6 +487,13 @@ const flipHBtn = document.getElementById('flipHBtn');
 const flipVBtn = document.getElementById('flipVBtn');
 const rotateCCWBtn = document.getElementById('rotateCCWBtn');
 const rotateCWBtn = document.getElementById('rotateCWBtn');
+const mosaicModeBtn = document.getElementById('mosaicModeBtn');
+const blurModeBtn = document.getElementById('blurModeBtn');
+const effectIntensityInput = document.getElementById('effectIntensityInput');
+const effectIntensityLabel = document.getElementById('effectIntensityLabel');
+const effectApplyRow = document.getElementById('effectApplyRow');
+const applyEffectBtn = document.getElementById('applyEffectBtn');
+const cancelEffectBtn = document.getElementById('cancelEffectBtn');
 
 const fontPickerBtn = document.getElementById('fontPickerBtn');
 const fontPickerPanel = document.getElementById('fontPickerPanel');
@@ -593,6 +626,9 @@ let fcanvas = null;
 let bgImageRef = null;
 let cropRect = null;
 let cropping = false;
+let effectMode = null;
+let effectRect = null;
+let selectingEffect = false;
 let newShapeOutline = false;
 let manualTool = 'select';
 
@@ -602,8 +638,8 @@ let suppressHistory = false;
 const SNAP_THRESHOLD = 8;
 
 function snapshotState(){
-  if(!fcanvas || suppressHistory || cropping) return;
-  const json = JSON.stringify(fcanvas.toJSON(['isBackground', 'isCropRect']));
+  if(!fcanvas || suppressHistory || cropping || selectingEffect) return;
+  const json = JSON.stringify(fcanvas.toJSON(['isBackground', 'isCropRect', 'effectType']));
   history = history.slice(0, historyIndex + 1);
   history.push(json);
   if(history.length > 50) history.shift();
@@ -796,7 +832,7 @@ function updateLayerPropsPanel(){
 function refreshLayers(){
   layersList.innerHTML = '';
   if(!fcanvas){ layersList.innerHTML = '<div class="layers-empty">Nothing here yet.</div>'; return; }
-  const objs = fcanvas.getObjects().filter(o => !o.isCropRect);
+  const objs = fcanvas.getObjects().filter(o => !o.isCropRect && !o.isEffectRect);
   if(objs.length === 0){ layersList.innerHTML = '<div class="layers-empty">Nothing here yet.</div>'; return; }
   const active = fcanvas.getActiveObject();
 
@@ -806,7 +842,7 @@ function refreshLayers(){
     row.className = 'layer-row' + (obj === active ? ' active' : '') + (obj.isBackground ? ' bg-row' : '');
 
     const isImgType = obj.isBackground || obj.type === 'image';
-    const label = obj.isBackground ? 'Background' : (obj.type === 'textbox' ? (obj.text || 'Text').slice(0, 16) : obj.type);
+    const label = obj.isBackground ? 'Background' : (obj.type === 'textbox' ? (obj.text || 'Text').slice(0, 16) : obj.effectType ? (obj.effectType === 'mosaic' ? 'Mosaic' : 'Blur') : obj.type);
 
     const iconSpan = document.createElement('span'); iconSpan.className = 'layer-icon';
     if(isImgType){ iconSpan.innerHTML = '<span class="icon-mask icon-mask-sm icon-image"></span>'; }
@@ -1288,6 +1324,119 @@ applyCropBtn.addEventListener('click', () => {
   } catch(err){
     setStatus('Something went wrong applying the crop (' + (err && err.message ? err.message : err) + ').', 'error');
     endCropUI();
+  }
+});
+
+// ---- effects: mosaic / blur over a user-picked area ----
+// both bake into a new image layer placed exactly over the selection, so they stay undoable/
+// deletable like any other layer, rather than flattening the whole canvas like crop/rotate do.
+// the trade-off: the patch only reflects what was visible underneath at the moment it was applied
+// — it won't track if you later move whatever was under it, and there's no re-editable intensity
+// afterward (delete the layer and reapply with a new setting instead).
+function setEffectMode(mode){
+  effectMode = mode;
+  mosaicModeBtn.classList.toggle('active', mode === 'mosaic');
+  blurModeBtn.classList.toggle('active', mode === 'blur');
+  if(mode === 'mosaic'){
+    effectIntensityLabel.textContent = 'Block size';
+    effectIntensityInput.min = 2; effectIntensityInput.max = 60; effectIntensityInput.value = 14;
+  } else {
+    effectIntensityLabel.textContent = 'Blur radius';
+    effectIntensityInput.min = 1; effectIntensityInput.max = 40; effectIntensityInput.value = 12;
+  }
+  startEffectSelection();
+}
+function startEffectSelection(){
+  if(!fcanvas) return;
+  cancelEffectSelection(false);
+  selectingEffect = true;
+  effectRect = new Rect({
+    left: fcanvas.width * 0.25, top: fcanvas.height * 0.25,
+    width: fcanvas.width * 0.5, height: fcanvas.height * 0.5,
+    fill: 'rgba(79,195,255,0.15)', stroke: '#4fc3ff', strokeWidth: 2,
+    strokeDashArray: [6, 4], cornerColor: '#4fc3ff', transparentCorners: false
+  });
+  effectRect.isEffectRect = true;
+  fcanvas.add(effectRect);
+  fcanvas.setActiveObject(effectRect);
+  fcanvas.renderAll();
+  effectApplyRow.style.display = 'flex';
+}
+function cancelEffectSelection(resetMode){
+  if(effectRect && fcanvas){ fcanvas.remove(effectRect); effectRect = null; }
+  if(fcanvas){ fcanvas.discardActiveObject(); fcanvas.renderAll(); }
+  selectingEffect = false;
+  effectApplyRow.style.display = 'none';
+  if(resetMode !== false){
+    effectMode = null;
+    mosaicModeBtn.classList.remove('active');
+    blurModeBtn.classList.remove('active');
+  }
+}
+mosaicModeBtn.addEventListener('click', () => setEffectMode('mosaic'));
+blurModeBtn.addEventListener('click', () => setEffectMode('blur'));
+cancelEffectBtn.addEventListener('click', () => cancelEffectSelection(true));
+applyEffectBtn.addEventListener('click', () => {
+  if(!fcanvas || !effectRect || !effectMode) return;
+  try{
+    const b = effectRect.getBoundingRect();
+    const w = Math.max(1, Math.round(b.width));
+    const h = Math.max(1, Math.round(b.height));
+    const left = Math.round(b.left), top = Math.round(b.top);
+
+    fcanvas.remove(effectRect);
+    fcanvas.discardActiveObject();
+    fcanvas.renderAll();
+
+    const sourceEl = fcanvas.lowerCanvasEl;
+    let outCanvas;
+
+    if(effectMode === 'mosaic'){
+      const block = parseInt(effectIntensityInput.value, 10) || 14;
+      const smallW = Math.max(1, Math.round(w / block));
+      const smallH = Math.max(1, Math.round(h / block));
+      const smallCanvas = document.createElement('canvas');
+      smallCanvas.width = smallW; smallCanvas.height = smallH;
+      smallCanvas.getContext('2d').drawImage(sourceEl, left, top, w, h, 0, 0, smallW, smallH);
+
+      outCanvas = document.createElement('canvas');
+      outCanvas.width = w; outCanvas.height = h;
+      const octx = outCanvas.getContext('2d');
+      octx.imageSmoothingEnabled = false;
+      octx.drawImage(smallCanvas, 0, 0, smallW, smallH, 0, 0, w, h);
+    } else {
+      // pad the sampled region so the canvas 2D blur() filter has real pixels to pull from at the
+      // edges instead of clamping to nothing, then crop the padded result back down to size
+      const radius = parseInt(effectIntensityInput.value, 10) || 12;
+      const pad = Math.max(0, Math.min(Math.ceil(radius * 2), left, top, fcanvas.width - (left + w), fcanvas.height - (top + h)));
+      const paddedCanvas = document.createElement('canvas');
+      paddedCanvas.width = w + pad * 2; paddedCanvas.height = h + pad * 2;
+      const pctx = paddedCanvas.getContext('2d');
+      pctx.filter = `blur(${radius}px)`;
+      pctx.drawImage(sourceEl, left - pad, top - pad, w + pad * 2, h + pad * 2, 0, 0, w + pad * 2, h + pad * 2);
+
+      outCanvas = document.createElement('canvas');
+      outCanvas.width = w; outCanvas.height = h;
+      outCanvas.getContext('2d').drawImage(paddedCanvas, pad, pad, w, h, 0, 0, w, h);
+    }
+
+    const dataUrl = outCanvas.toDataURL('image/png');
+    const appliedMode = effectMode;
+    FabricImage.fromURL(dataUrl).then(img => {
+      img.set({ left, top });
+      img.effectType = appliedMode;
+      fcanvas.add(img);
+      fcanvas.setActiveObject(img);
+      fcanvas.renderAll();
+      onSelectionChange();
+    });
+
+    effectRect = null;
+    cancelEffectSelection(true);
+    setStatus((appliedMode === 'mosaic' ? 'Mosaic' : 'Blur') + ' applied as a new layer — move, delete, or fade it like any other layer.', 'ok');
+  } catch(err){
+    setStatus('Something went wrong applying the effect (' + (err && err.message ? err.message : err) + ').', 'error');
+    cancelEffectSelection(true);
   }
 });
 </script>
