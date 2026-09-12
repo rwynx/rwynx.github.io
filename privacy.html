@@ -53,21 +53,23 @@
 
   <div class="article">
     <h2>The short version</h2>
-    <p>This is a personal, non-commercial site. I don't run ads, I don't sell anything, and I don't track you. The tools on this site (NovelAI Metadata Inspector, Background Remover, Image Resizer) process everything — images, PNGs, whatever you feed them — entirely inside your own browser. Nothing you upload into a tool on this site is ever sent to me, to a server, or to any third party.</p>
+    <p>This is a personal, non-commercial site. I don't run ads, I don't sell anything, and I don't track you. The tools on this site (NovelAI Metadata Inspector, Background Remover, Image Resizer, Image Editor) process everything — images, PNGs, whatever you feed them — entirely inside your own browser. Nothing you upload into a tool on this site is ever sent to me, to a server, or to any third party.</p>
 
     <h2>What I don't do</h2>
     <ul>
       <li>No accounts, no sign-ups, no logins.</li>
       <li>No analytics, no ad trackers, no cookies set by me.</li>
       <li>No file uploads for any of the tools — they run client-side, in your browser, using JavaScript and the Canvas/WebAssembly APIs. I never see what you put into them.</li>
+      <li>The Image Editor's "Resize →" button hands your image off to the Image Resizer tool using your browser's own temporary storage (sessionStorage) — that's a local, browser-to-browser handoff, not a network transfer, and nothing leaves your device.</li>
     </ul>
 
     <h2>What does happen, outside my control</h2>
     <p>This site is static and hosted on GitHub Pages, and uses a couple of standard third-party services that any visitor's browser talks to directly:</p>
     <ul>
       <li><b>GitHub Pages hosting</b> — like any web host, it keeps standard server logs (things like your IP address and browser type) for the pages you request. I don't have special access to this beyond what GitHub provides.</li>
-      <li><b>Google Fonts</b> — this site loads a couple of fonts from Google's font CDN (fonts.googleapis.com / fonts.gstatic.com), which means your browser makes a direct request to Google to fetch them, and Google can see the request (including your IP) the same way it would for any font request on any site.</li>
-      <li><b>The Background Remover tool</b> loads an AI model from a public CDN (jsDelivr) the first time you use it — again, your browser fetches it directly, no data about your image is involved, it's just downloading the model files themselves.</li>
+      <li><b>Google Fonts</b> — this site loads fonts from Google's font CDN (fonts.googleapis.com / fonts.gstatic.com), which means your browser makes a direct request to Google to fetch them, and Google can see the request (including your IP) the same way it would for any font request on any site. The Image Editor's text tool lets you pick from a larger set of Google Fonts, loaded the same way, on demand, only for the font you actually pick.</li>
+      <li><b>The Background Remover tool</b> loads its AI code library from a public CDN (jsDelivr) and the model weights themselves from Hugging Face's CDN, the first time you use it — your browser fetches these directly from those services; no data about your image is involved, it's just downloading the tool itself.</li>
+      <li><b>The Image Editor tool</b> loads its canvas engine (Fabric.js) from the same jsDelivr CDN — again, just the library code, not anything about your image.</li>
     </ul>
 
     <h2>Questions</h2>
