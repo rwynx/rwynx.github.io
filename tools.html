@@ -11,34 +11,82 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link href="assets/css/site.css" rel="stylesheet">
 <style>
-  header.page-head{ position:relative; z-index:2; max-width:1100px; margin:0 auto; padding:6vh 6vw 2vh; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
+  header.page-head{ position:relative; z-index:2; max-width:1300px; margin:0 auto; padding:6vh 6vw 2vh; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
   header.page-head nav.main-nav ul{ gap:26px; }
   .go-back-inline{ position:relative; z-index:2; max-width:1300px; margin:0 auto; padding:0 6vw; }
   .go-back-inline a{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px; text-decoration:none; color:var(--text-dim); transition:color .3s ease; }
   .go-back-inline a:hover{ color:var(--purple); }
 
   .tools-landing-wrap{ position:relative; z-index:2; min-height:78vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px; padding:4vh 6vw 8vh; }
-  .tools-landing-grid{ display:flex; gap:34px; flex-wrap:wrap; justify-content:center; align-items:stretch; max-width:1300px; }
 
-  /* wider than mods.html's .big-card on purpose — these are utility cards, not screenshot cards */
-  .tool-card{
-    position:relative; width:min(34vw, 420px); min-height:280px; border-radius:20px; padding:32px 28px;
-    background:var(--card-bg); border:1px solid var(--card-border); display:flex; flex-direction:column; gap:14px;
-    text-decoration:none; color:var(--text); transition:transform .5s cubic-bezier(.16,1,.3,1), box-shadow .5s ease, border-color .5s ease;
+  /* grid instead of the old flex-wrap — scales cleanly no matter how many cards we add, no more
+     awkward 3+3 / 2+2+2 wrapping as the tool count grows */
+  .tools-landing-grid{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(270px, 1fr));
+    gap:30px; max-width:1300px; width:100%;
   }
-  .tool-card:hover{ transform:translateY(-6px) scale(1.02); box-shadow:0 30px 70px -25px rgba(155,109,255,.5); border-color:rgba(155,109,255,.55); }
-  .tool-card.wip{ opacity:.55; cursor:default; }
-  .tool-card.wip:hover{ transform:none; box-shadow:none; border-color:var(--card-border); }
+
+  /* cut top-right corner instead of a plain rectangle — gives the cards a "tech panel" feel that
+     fits the binary-rain/neon theme. box-shadow (inset) still traces the cut edge correctly since
+     clip-path masks everything, including shadows, as a final compositing step */
+  .tool-card{
+    position:relative; min-height:280px; padding:32px 28px;
+    background:var(--card-bg); box-shadow:inset 0 0 0 1px var(--card-border);
+    clip-path:polygon(0 0, calc(100% - 26px) 0, 100% 26px, 100% 100%, 0 100%);
+    display:flex; flex-direction:column; gap:14px;
+    text-decoration:none; color:var(--text);
+    transition:transform .5s cubic-bezier(.16,1,.3,1), box-shadow .5s ease;
+  }
+  .tool-card:hover{ transform:translateY(-6px) scale(1.02); box-shadow:inset 0 0 0 1px rgba(155,109,255,.55), 0 30px 70px -25px rgba(155,109,255,.5); }
+  .tool-card.wip{ cursor:default; }
+  .tool-card.wip:hover{ transform:none; box-shadow:inset 0 0 0 1px var(--card-border); }
+
+  /* small triangular accent that fills the cut corner */
+  .tool-card::before{
+    content:''; position:absolute; top:0; right:0;
+    border-style:solid; border-width:0 26px 26px 0;
+    border-color:transparent rgba(155,109,255,.25) transparent transparent;
+    transition:border-color .3s ease; pointer-events:none;
+  }
+  .tool-card:hover::before{ border-color:transparent rgba(155,109,255,.55) transparent transparent; }
+  .tool-card.wip:hover::before{ border-color:transparent rgba(155,109,255,.25) transparent transparent; }
+
+  /* spotlight that follows the cursor — position set via --mx/--my in JS. inherits the card's
+     clip-path automatically since pseudo-elements are clipped along with their parent box */
+  .tool-card::after{
+    content:''; position:absolute; inset:0; pointer-events:none; opacity:0;
+    background:radial-gradient(260px circle at var(--mx,50%) var(--my,50%), rgba(155,109,255,.16), transparent 70%);
+    transition:opacity .3s ease;
+  }
+  .tool-card:hover::after{ opacity:1; }
+  .tool-card.wip:hover::after{ opacity:0; }
+
+  /* left-to-right "pop in" reveal, triggered once by IntersectionObserver on the grid.
+     html.js hides cards up front; without JS (or if it fails) they just show up normal. */
+  html.js .tools-landing-grid .tool-card{
+    opacity:0; transform:scale(.85) translateY(18px);
+    transition:opacity .55s cubic-bezier(.34,1.56,.64,1), transform .55s cubic-bezier(.34,1.56,.64,1);
+  }
+  html.js .tools-landing-grid.revealed .tool-card{ opacity:1; transform:scale(1) translateY(0); }
+  html.js .tools-landing-grid.revealed .tool-card.wip{ opacity:.55; }
+  html.js .tools-landing-grid.revealed .tool-card:nth-child(1){ transition-delay:.03s; }
+  html.js .tools-landing-grid.revealed .tool-card:nth-child(2){ transition-delay:.11s; }
+  html.js .tools-landing-grid.revealed .tool-card:nth-child(3){ transition-delay:.19s; }
+  html.js .tools-landing-grid.revealed .tool-card:nth-child(4){ transition-delay:.27s; }
+  html.js .tools-landing-grid.revealed .tool-card:nth-child(5){ transition-delay:.35s; }
+  html.js .tools-landing-grid.revealed .tool-card:nth-child(6){ transition-delay:.43s; }
+  .tool-card.wip{ transition-property:opacity, transform, box-shadow; }
+
   .tool-icon{ font-size:34px; line-height:1; }
   .tool-icon-img{ width:40px; height:40px; object-fit:contain; border-radius:8px; }
   .tool-name{ font-size:20px; font-weight:600; }
   .tool-desc{ font-size:13px; color:var(--text-dim); line-height:1.6; }
   .tool-tag{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-dim); border:1px solid var(--card-border); border-radius:6px; padding:3px 8px; align-self:flex-start; }
-
-  @media(max-width:720px){ .tool-card{width:100%; max-width:420px;} }
 </style>
 </head>
 <body>
+
+<script>document.documentElement.classList.add('js');</script>
 
 <video class="bg-video" src="assets/img/background/binary_rain.mp4" muted loop autoplay playsinline></video>
 <div class="bg-tint"></div>
@@ -61,7 +109,7 @@
 <div class="go-back-inline"><a href="index.html">← Go back</a></div>
 
 <div class="tools-landing-wrap">
-  <div class="tools-landing-grid">
+  <div class="tools-landing-grid" id="toolsGrid">
     <!-- icon path placeholders — drop matching pngs into assets/img/resources and they'll pick up automatically, emoji fallback until then -->
     <a class="tool-card" href="tools/MetadataInspector.html">
       <img src="assets/img/resources/nai-metadata-inspector.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'🔍'}))">
@@ -103,5 +151,29 @@
 </div>
 
 <script src="assets/js/site.js"></script>
+<script>
+// left-to-right "pop" reveal (nth-child transition-delay in CSS does the actual staggering —
+// this just flips the one class once the grid scrolls into view) + a cursor-tracking spotlight
+// per card. No animation library needed for either.
+(function(){
+  const grid = document.getElementById('toolsGrid');
+  if(!grid) return;
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if(entry.isIntersecting){ grid.classList.add('revealed'); io.unobserve(grid); }
+    });
+  }, { threshold: 0.15 });
+  io.observe(grid);
+
+  grid.querySelectorAll('.tool-card').forEach(card => {
+    card.addEventListener('mousemove', e => {
+      const r = card.getBoundingClientRect();
+      card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+      card.style.setProperty('--my', (e.clientY - r.top) + 'px');
+    });
+  });
+})();
+</script>
 </body>
 </html>
