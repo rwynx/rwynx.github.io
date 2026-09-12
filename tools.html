@@ -111,6 +111,12 @@
 <div class="tools-landing-wrap">
   <div class="tools-landing-grid" id="toolsGrid">
     <!-- icon path placeholders — drop matching pngs into assets/img/resources and they'll pick up automatically, emoji fallback until then -->
+    <a class="tool-card" href="tools/ImageEditor.html">
+      <img src="assets/img/resources/image-editor.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'🖌️'}))">
+      <span class="tool-tag">live</span>
+      <div class="tool-name">Image Editor</div>
+      <div class="tool-desc">You give me an image (or start blank), I let you crop, add text and shapes, draw, layer, and export — all in your browser.</div>
+    </a>
     <a class="tool-card" href="tools/MetadataInspector.html">
       <img src="assets/img/resources/nai-metadata-inspector.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'🔍'}))">
       <span class="tool-tag">live</span>
@@ -129,23 +135,17 @@
       <div class="tool-name">Image Resizer</div>
       <div class="tool-desc">You give me an image and a size, I resize it — exact pixels, percentage, or a streaming-asset preset, all in your browser.</div>
     </a>
-    <a class="tool-card" href="tools/ImageEditor.html">
-      <img src="assets/img/resources/image-editor.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'🖌️'}))">
-      <span class="tool-tag">live</span>
-      <div class="tool-name">Image Editor</div>
-      <div class="tool-desc">You give me an image (or start blank), I let you crop, add text and shapes, draw, layer, and export — all in your browser.</div>
-    </a>
     <div class="tool-card wip">
       <img src="assets/img/resources/palette-extractor.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'🎨'}))">
-      <span class="tool-tag">wip</span>
+      <span class="tool-tag">wip – not built yet</span>
       <div class="tool-name">RWX Palette Extractor</div>
-      <div class="tool-desc">Not built yet — you'll give me an image, I'll pull out its color palette.</div>
+      <div class="tool-desc">Yyou'll give me an image, I'll pull out its color palette.</div>
     </div>
     <div class="tool-card wip">
       <img src="assets/img/resources/batch-renamer.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'🗂️'}))">
-      <span class="tool-tag">wip</span>
+      <span class="tool-tag">wip – not built yet</span>
       <div class="tool-name">RWX Batch Renamer</div>
-      <div class="tool-desc">Not built yet — you'll give me a batch of screenshots, I'll bulk-rename and re-number them.</div>
+      <div class="tool-desc">You'll give me a batch of screenshots, I'll bulk-rename and re-number them.</div>
     </div>
   </div>
 </div>
