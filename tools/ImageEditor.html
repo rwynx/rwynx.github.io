@@ -162,6 +162,23 @@
     .editor-body{ flex-direction:column; }
     .side-panel, .layers-col{ width:100%; flex:1 1 auto; }
   }
+
+  /* ---- hand-authored line icons under assets/img/resources/, masked so they pick up
+     currentColor and follow the button's normal/hover/active color automatically ---- */
+  .icon-mask{
+    display:inline-block; width:14px; height:14px; background-color:currentColor;
+    -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat;
+    -webkit-mask-position:center; mask-position:center;
+    -webkit-mask-size:contain; mask-size:contain;
+    vertical-align:middle;
+  }
+  .icon-mask-sm{ width:11px; height:11px; }
+  .icon-image{ -webkit-mask-image:url('../assets/img/resources/icon-image.svg'); mask-image:url('../assets/img/resources/icon-image.svg'); }
+  .icon-delete{ -webkit-mask-image:url('../assets/img/resources/icon-delete.svg'); mask-image:url('../assets/img/resources/icon-delete.svg'); }
+  .icon-eye{ -webkit-mask-image:url('../assets/img/resources/icon-eye.svg'); mask-image:url('../assets/img/resources/icon-eye.svg'); }
+  .icon-eye-off{ -webkit-mask-image:url('../assets/img/resources/icon-eye-off.svg'); mask-image:url('../assets/img/resources/icon-eye-off.svg'); }
+  .icon-duplicate{ -webkit-mask-image:url('../assets/img/resources/icon-duplicate.svg'); mask-image:url('../assets/img/resources/icon-duplicate.svg'); }
+  .icon-transform{ -webkit-mask-image:url('../assets/img/resources/icon-transform.svg'); mask-image:url('../assets/img/resources/icon-transform.svg'); }
 </style>
 </head>
 <body>
@@ -192,7 +209,7 @@
   <div class="toolbar" id="toolbar">
     <div class="toolbar-group">
       <span class="toolbar-label">Image</span>
-      <button class="icon-btn has-tip" data-tip="Change image" id="changeImgBtn">🖼️</button>
+      <button class="icon-btn has-tip" data-tip="Change image" id="changeImgBtn"><span class="icon-mask icon-image"></span></button>
     </div>
     <div class="toolbar-group">
       <span class="toolbar-label">Crop</span>
@@ -220,8 +237,8 @@
           <button class="rail-btn has-tip" data-tool="text" data-tip="Text (T)">T</button>
           <button class="rail-btn has-tip" data-tool="shapes" data-tip="Shapes (U)">▭</button>
           <button class="rail-btn has-tip" data-tool="draw" data-tip="Draw (B)">✎</button>
-          <button class="rail-btn has-tip" data-tool="image" data-tip="Add image layer (I)">🖼️</button>
-          <button class="rail-btn has-tip" data-tool="transform" data-tip="Transform (R)">🔄</button>
+          <button class="rail-btn has-tip" data-tool="image" data-tip="Add image layer (I)"><span class="icon-mask icon-image"></span></button>
+          <button class="rail-btn has-tip" data-tool="transform" data-tip="Transform (R)"><span class="icon-mask icon-transform"></span></button>
         </div>
 
         <div class="tool-flyout">
@@ -243,6 +260,15 @@
               <span class="toolbar-label" style="margin:0;">Outline</span>
               <input class="tool-input" type="color" id="textStrokeColorInput" value="#000000" title="Outline color">
               <input class="tool-input" type="number" id="textStrokeWidthInput" min="0" max="30" value="0" title="Outline width, 0 = none">
+            </div>
+            <div class="style-row">
+              <span class="toolbar-label" style="margin:0;">Outline opacity</span>
+              <input type="range" id="textStrokeOpacityInput" min="0" max="100" value="100" style="flex:1;">
+            </div>
+            <div class="style-row">
+              <span class="toolbar-label" style="margin:0;">Spacing</span>
+              <input class="tool-input" type="number" id="letterSpacingInput" min="-200" max="800" value="0" title="Letter spacing">
+              <input class="tool-input" type="number" id="lineHeightInput" min="0.5" max="3" step="0.1" value="1.16" title="Line height">
             </div>
             <div class="style-row">
               <button class="icon-btn has-tip" data-tip="Align left" id="alignLeftBtn">⟸</button>
@@ -302,7 +328,29 @@
           <button class="icon-btn has-tip" data-tip="Toggle drop shadow" id="shadowToggleBtn">▩ Shadow</button>
           <input class="tool-input" type="number" id="shadowBlurInput" min="0" max="60" value="8" title="Shadow blur" style="display:none;">
         </div>
-        <button class="icon-btn has-tip" data-tip="Delete selected layer" id="deleteSelectedBtn">🗑️ Delete</button>
+        <div class="style-row">
+          <span class="toolbar-label" style="margin:0;">Blend</span>
+          <select class="tool-select" id="blendModeSelect">
+            <option value="normal">Normal</option>
+            <option value="multiply">Multiply</option>
+            <option value="screen">Screen</option>
+            <option value="overlay">Overlay</option>
+            <option value="darken">Darken</option>
+            <option value="lighten">Lighten</option>
+            <option value="color-dodge">Color dodge</option>
+            <option value="color-burn">Color burn</option>
+            <option value="difference">Difference</option>
+            <option value="exclusion">Exclusion</option>
+            <option value="hue">Hue</option>
+            <option value="saturation">Saturation</option>
+            <option value="color">Color</option>
+            <option value="luminosity">Luminosity</option>
+          </select>
+        </div>
+        <div class="tool-btn-row">
+          <button class="icon-btn has-tip" data-tip="Duplicate selected layer" id="duplicateSelectedBtn"><span class="icon-mask icon-duplicate"></span> Duplicate</button>
+          <button class="icon-btn has-tip" data-tip="Delete selected layer" id="deleteSelectedBtn"><span class="icon-mask icon-delete"></span> Delete</button>
+        </div>
       </div>
     </div>
 
@@ -349,11 +397,11 @@
 
 <script src="../assets/js/site.js"></script>
 <script type="module">
-// PROTOTYPE v5 — fixed undo/redo (fabric v6's loadFromJSON returns a Promise; the 2nd arg is a
-// per-object "reviver", not a completion callback, so using it as one was letting suppressHistory
-// lift before a restore had actually finished loading, which corrupted the history stack). Also
-// moved Undo/Redo into the top toolbar (next to Resize), and folded flip/rotate into their own
-// "Transform" rail tool instead of a separate always-visible Actions section.
+// PROTOTYPE v6 — added text outline opacity (separate rgba stroke, independent from the layer's
+// overall Opacity slider), letter spacing + line height for text, a Blend mode dropdown and a
+// Duplicate button for the selected layer, and swapped the emoji icons (image/transform/eye/
+// delete/duplicate) for hand-authored SVGs under ../assets/img/resources/, masked with currentColor
+// so they follow the button's normal/hover/active color like the rest of the UI.
 //
 // honest limitations kept from earlier versions: crop and whole-image rotate still flatten every
 // layer into a new base image (same as before); text outline is outer-stroke only; snapping is
@@ -420,6 +468,9 @@ const sizeInput = document.getElementById('sizeInput');
 const colorInput = document.getElementById('colorInput');
 const textStrokeColorInput = document.getElementById('textStrokeColorInput');
 const textStrokeWidthInput = document.getElementById('textStrokeWidthInput');
+const textStrokeOpacityInput = document.getElementById('textStrokeOpacityInput');
+const letterSpacingInput = document.getElementById('letterSpacingInput');
+const lineHeightInput = document.getElementById('lineHeightInput');
 const alignLeftBtn = document.getElementById('alignLeftBtn');
 const alignCenterBtn = document.getElementById('alignCenterBtn');
 const alignRightBtn = document.getElementById('alignRightBtn');
@@ -433,6 +484,8 @@ const layerPropsSection = document.getElementById('layerPropsSection');
 const opacityInput = document.getElementById('opacityInput');
 const shadowToggleBtn = document.getElementById('shadowToggleBtn');
 const shadowBlurInput = document.getElementById('shadowBlurInput');
+const blendModeSelect = document.getElementById('blendModeSelect');
+const duplicateSelectedBtn = document.getElementById('duplicateSelectedBtn');
 const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
 
 const layersList = document.getElementById('layersList');
@@ -514,6 +567,27 @@ function setStatus(msg, type){
   statusMsg.className = 'status-msg' + (type ? ' ' + type : '');
 }
 function normalizeHex(v){ return (typeof v === 'string' && v.startsWith('#')) ? v : null; }
+
+// outline opacity is stored by encoding the alpha straight into the stroke color as rgba(),
+// separate from the object's overall "Opacity" slider (which affects fill + outline together)
+function hexToRgba(hex, alpha){
+  hex = (hex || '#000000').replace('#', '');
+  if(hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  const r = parseInt(hex.slice(0, 2), 16) || 0, g = parseInt(hex.slice(2, 4), 16) || 0, b = parseInt(hex.slice(4, 6), 16) || 0;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+function parseColorToHexAlpha(v){
+  if(typeof v === 'string' && v.startsWith('rgba')){
+    const m = v.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\)/);
+    if(m){
+      const r = parseInt(m[1], 10), g = parseInt(m[2], 10), b = parseInt(m[3], 10);
+      const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
+      return { hex: '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join(''), alpha: a };
+    }
+  }
+  if(typeof v === 'string' && v.startsWith('#')) return { hex: v, alpha: 1 };
+  return { hex: '#000000', alpha: 1 };
+}
 
 let fcanvas = null;
 let bgImageRef = null;
@@ -679,8 +753,12 @@ function updateStylePanels(){
     selectFontUI(obj.fontFamily || 'Inter');
     sizeInput.value = Math.round(obj.fontSize || 32);
     colorInput.value = normalizeHex(obj.fill) || '#ffffff';
-    textStrokeColorInput.value = normalizeHex(obj.stroke) || '#000000';
+    const strokeInfo = parseColorToHexAlpha(obj.stroke);
+    textStrokeColorInput.value = strokeInfo.hex;
+    textStrokeOpacityInput.value = Math.round(strokeInfo.alpha * 100);
     textStrokeWidthInput.value = Math.round(obj.strokeWidth || 0);
+    letterSpacingInput.value = obj.charSpacing || 0;
+    lineHeightInput.value = obj.lineHeight || 1.16;
   }
   if(obj && ['rect', 'circle', 'line'].includes(obj.type)){
     const isLine = obj.type === 'line';
@@ -710,6 +788,8 @@ function updateLayerPropsPanel(){
     shadowToggleBtn.classList.toggle('active', !!obj.shadow);
     shadowBlurInput.style.display = obj.shadow ? 'inline-block' : 'none';
     if(obj.shadow) shadowBlurInput.value = obj.shadow.blur;
+    const gco = obj.globalCompositeOperation || 'source-over';
+    blendModeSelect.value = gco === 'source-over' ? 'normal' : gco;
   }
 }
 
@@ -725,10 +805,12 @@ function refreshLayers(){
     const row = document.createElement('div');
     row.className = 'layer-row' + (obj === active ? ' active' : '') + (obj.isBackground ? ' bg-row' : '');
 
-    const icon = obj.isBackground ? '🖼️' : obj.type === 'textbox' ? 'T' : obj.type === 'rect' ? '▭' : obj.type === 'circle' ? '◯' : obj.type === 'line' ? '╱' : obj.type === 'path' ? '✎' : obj.type === 'image' ? '🖼️' : '●';
+    const isImgType = obj.isBackground || obj.type === 'image';
     const label = obj.isBackground ? 'Background' : (obj.type === 'textbox' ? (obj.text || 'Text').slice(0, 16) : obj.type);
 
-    const iconSpan = document.createElement('span'); iconSpan.className = 'layer-icon'; iconSpan.textContent = icon;
+    const iconSpan = document.createElement('span'); iconSpan.className = 'layer-icon';
+    if(isImgType){ iconSpan.innerHTML = '<span class="icon-mask icon-mask-sm icon-image"></span>'; }
+    else { iconSpan.textContent = obj.type === 'textbox' ? 'T' : obj.type === 'rect' ? '▭' : obj.type === 'circle' ? '◯' : obj.type === 'line' ? '╱' : obj.type === 'path' ? '✎' : '●'; }
     const labelSpan = document.createElement('span'); labelSpan.className = 'layer-label'; labelSpan.textContent = label;
     row.appendChild(iconSpan); row.appendChild(labelSpan);
 
@@ -737,7 +819,7 @@ function refreshLayers(){
 
       const eyeBtn = document.createElement('button');
       eyeBtn.className = 'layer-mini-btn'; eyeBtn.title = 'Toggle visibility';
-      eyeBtn.textContent = obj.visible === false ? '🚫' : '👁️';
+      eyeBtn.innerHTML = obj.visible === false ? '<span class="icon-mask icon-mask-sm icon-eye-off"></span>' : '<span class="icon-mask icon-mask-sm icon-eye"></span>';
       eyeBtn.addEventListener('click', ev => {
         ev.stopPropagation();
         obj.visible = obj.visible === false;
@@ -755,7 +837,7 @@ function refreshLayers(){
       downBtn.addEventListener('click', ev => { ev.stopPropagation(); reorder(obj, 'down'); });
 
       const delBtn = document.createElement('button');
-      delBtn.className = 'layer-mini-btn'; delBtn.title = 'Delete'; delBtn.textContent = '🗑️';
+      delBtn.className = 'layer-mini-btn'; delBtn.title = 'Delete'; delBtn.innerHTML = '<span class="icon-mask icon-mask-sm icon-delete"></span>';
       delBtn.addEventListener('click', ev => {
         ev.stopPropagation();
         fcanvas.remove(obj);
@@ -865,20 +947,41 @@ colorInput.addEventListener('input', () => {
   fcanvas.renderAll();
 });
 colorInput.addEventListener('change', () => snapshotState());
-textStrokeColorInput.addEventListener('input', () => {
+
+// outline color + outline opacity both feed into one rgba() stroke value, kept independent
+// from the layer's overall Opacity slider below (which fades fill+outline together)
+function applyTextStroke(){
   const obj = fcanvas && fcanvas.getActiveObject();
   if(!obj || obj.type !== 'textbox') return;
-  obj.set('stroke', textStrokeColorInput.value);
+  const alpha = parseInt(textStrokeOpacityInput.value, 10) / 100;
+  obj.set('stroke', hexToRgba(textStrokeColorInput.value, alpha));
   fcanvas.renderAll();
-});
+}
+textStrokeColorInput.addEventListener('input', applyTextStroke);
 textStrokeColorInput.addEventListener('change', () => snapshotState());
+textStrokeOpacityInput.addEventListener('input', applyTextStroke);
+textStrokeOpacityInput.addEventListener('change', () => snapshotState());
 textStrokeWidthInput.addEventListener('input', () => {
   const obj = fcanvas && fcanvas.getActiveObject();
   if(!obj || obj.type !== 'textbox') return;
   obj.set('strokeWidth', parseInt(textStrokeWidthInput.value, 10) || 0);
-  fcanvas.renderAll();
+  if(!obj.stroke) applyTextStroke(); else fcanvas.renderAll();
 });
 textStrokeWidthInput.addEventListener('change', () => snapshotState());
+letterSpacingInput.addEventListener('input', () => {
+  const obj = fcanvas && fcanvas.getActiveObject();
+  if(!obj || obj.type !== 'textbox') return;
+  obj.set('charSpacing', parseInt(letterSpacingInput.value, 10) || 0);
+  fcanvas.renderAll();
+});
+letterSpacingInput.addEventListener('change', () => snapshotState());
+lineHeightInput.addEventListener('input', () => {
+  const obj = fcanvas && fcanvas.getActiveObject();
+  if(!obj || obj.type !== 'textbox') return;
+  obj.set('lineHeight', parseFloat(lineHeightInput.value) || 1.16);
+  fcanvas.renderAll();
+});
+lineHeightInput.addEventListener('change', () => snapshotState());
 
 function setTextAlign(v){
   const obj = fcanvas && fcanvas.getActiveObject();
@@ -975,7 +1078,7 @@ imageLayerInput.addEventListener('change', () => {
 brushColorInput.addEventListener('input', () => { if(fcanvas && fcanvas.freeDrawingBrush) fcanvas.freeDrawingBrush.color = brushColorInput.value; });
 brushSizeInput.addEventListener('input', () => { if(fcanvas && fcanvas.freeDrawingBrush) fcanvas.freeDrawingBrush.width = parseInt(brushSizeInput.value, 10) || 6; });
 
-// ---- generic layer properties (opacity, shadow, delete) ----
+// ---- generic layer properties (opacity, shadow, blend mode, duplicate, delete) ----
 opacityInput.addEventListener('input', () => {
   const obj = fcanvas && fcanvas.getActiveObject();
   if(!obj) return;
@@ -999,6 +1102,25 @@ shadowBlurInput.addEventListener('input', () => {
   fcanvas.renderAll();
 });
 shadowBlurInput.addEventListener('change', () => snapshotState());
+blendModeSelect.addEventListener('change', () => {
+  const obj = fcanvas && fcanvas.getActiveObject();
+  if(!obj) return;
+  obj.set('globalCompositeOperation', blendModeSelect.value === 'normal' ? 'source-over' : blendModeSelect.value);
+  fcanvas.renderAll();
+  snapshotState();
+});
+duplicateSelectedBtn.addEventListener('click', () => {
+  const obj = fcanvas && fcanvas.getActiveObject();
+  if(!obj || obj.isBackground) return;
+  // fabric v6: clone() returns a Promise, same story as loadFromJSON above
+  obj.clone().then(cloned => {
+    cloned.set({ left: (obj.left || 0) + 20, top: (obj.top || 0) + 20 });
+    fcanvas.add(cloned);
+    fcanvas.setActiveObject(cloned);
+    fcanvas.renderAll();
+    onSelectionChange();
+  });
+});
 deleteSelectedBtn.addEventListener('click', () => deleteActive());
 
 function deleteActive(){
