@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Image Editor — Rwyn's Blog</title>
-<meta name="description" content="A simple browser-based image editor — crop, add text, draw, shapes, layers, and more. Nothing ever leaves your browser.">
+<meta name="description" content="A free browser-based image editor — crop, add text, draw shapes, censor parts of a photo with mosaic or blur, layer in a second image, flip and rotate. Nothing ever leaves your browser.">
 <link rel="icon" type="image/png" href="../assets/img/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1331,7 +1331,7 @@ applyCropBtn.addEventListener('click', () => {
 // both bake into a new image layer placed exactly over the selection, so they stay undoable/
 // deletable like any other layer, rather than flattening the whole canvas like crop/rotate do.
 // the trade-off: the patch only reflects what was visible underneath at the moment it was applied
-// — it won't track if you later move whatever was under it, and there's no re-editable intensity
+// — it won't follow if you later move whatever was under it, and there's no re-editable intensity
 // afterward (delete the layer and reapply with a new setting instead).
 function setEffectMode(mode){
   effectMode = mode;
