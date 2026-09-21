@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tools — Rwyn's Blog</title>
-<meta name="description" content="Free browser-based tools by Rwyn — an online image editor, an image resizer, an AI background remover, and a NovelAI metadata inspector. Everything runs client-side, nothing is ever uploaded.">
+<meta name="description" content="Free browser-based tools by Rwyn — an online image editor, an image resizer, an AI background remover, a file converter, and a NovelAI metadata inspector. Everything runs client-side, nothing is ever uploaded.">
 <link rel="icon" type="image/png" href="assets/img/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,6 +12,7 @@
 <link href="assets/css/site.css" rel="stylesheet">
 <style>
   header.page-head{ position:relative; z-index:2; max-width:1300px; margin:0 auto; padding:6vh 6vw 2vh; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
+  h1.page-title{ font-size:clamp(30px,4.5vw,42px); }
   header.page-head nav.main-nav ul{ gap:26px; }
   .go-back-inline{ position:relative; z-index:2; max-width:1300px; margin:0 auto; padding:0 6vw; }
   .go-back-inline a{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px; text-decoration:none; color:var(--text-dim); transition:color .3s ease; }
@@ -75,6 +76,7 @@
   html.js .tools-landing-grid.revealed .tool-card:nth-child(4){ transition-delay:.27s; }
   html.js .tools-landing-grid.revealed .tool-card:nth-child(5){ transition-delay:.35s; }
   html.js .tools-landing-grid.revealed .tool-card:nth-child(6){ transition-delay:.43s; }
+  html.js .tools-landing-grid.revealed .tool-card:nth-child(7){ transition-delay:.51s; }
   .tool-card.wip{ transition-property:opacity, transform, box-shadow; }
 
   .tool-icon{ font-size:34px; line-height:1; }
@@ -111,6 +113,12 @@
 <div class="tools-landing-wrap">
   <div class="tools-landing-grid" id="toolsGrid">
     <!-- icon path placeholders — drop matching pngs into assets/img/resources and they'll pick up automatically, emoji fallback until then -->
+    <a class="tool-card" href="tools/FileConverter.html">
+      <img src="assets/img/resources/file-converter.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'🔄'}))">
+      <span class="tool-tag">live</span>
+      <div class="tool-name">File Converter</div>
+      <div class="tool-desc">You give me a file, I convert it — images between PNG/JPEG/WEBP/GIF, audio to WAV, or data between JSON/CSV/TXT. PNG/JPG → GIF is the one-click favorite for permanent Discord links. All in your browser, no uploads.</div>
+    </a>
     <a class="tool-card" href="tools/ImageEditor.html">
       <img src="assets/img/resources/image-editor.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'🖌️'}))">
       <span class="tool-tag">live</span>
