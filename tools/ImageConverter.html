@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Converter — Rwyn's Blog</title>
+<meta name="description" content="Convert images between PNG, JPEG and WEBP right in your browser — nothing is ever uploaded anywhere.">
+<link rel="icon" type="image/png" href="../assets/img/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="../assets/css/site.css" rel="stylesheet">
+<style>
+  header.page-head{ position:relative; z-index:2; max-width:1100px; margin:0 auto; padding:6vh 6vw 2vh; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
+  header.page-head nav.main-nav ul{ gap:26px; }
+  .go-back-inline{ margin-bottom:4px; }
+  .go-back-inline a{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px; text-decoration:none; color:var(--text-dim); transition:color .3s ease; }
+  .go-back-inline a:hover{ color:var(--purple); }
+
+  .tools-wrap{ position:relative; z-index:2; max-width:1300px; margin:0 auto; display:flex; gap:34px; align-items:flex-start; padding:2vh 6vw 10vh; }
+  .tools-left{ flex:0 0 380px; display:flex; flex-direction:column; gap:18px; }
+
+  .tools-right-col{ flex:1; display:flex; flex-direction:column; align-items:center; gap:16px; min-width:0; }
+  .tools-right{
+    width:100%; max-width:768px; min-height:420px; border-radius:20px;
+    background:var(--card-bg); border:1px solid var(--card-border);
+    display:flex; align-items:center; justify-content:center;
+    position:relative; overflow:hidden; cursor:pointer;
+    transition:border-color .3s ease, background .3s ease;
+  }
+  .tools-right.drag-over{ border-color:var(--purple); background:rgba(155,109,255,.08); }
+  .tools-right img{ max-width:100%; max-height:420px; object-fit:contain; border-radius:14px; display:block; }
+  .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; }
+  .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
+
+  #dropContent{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:24px; }
+  #dropContent.file-loaded{ position:relative; inset:auto; flex-direction:column; gap:16px; width:100%; }
+
+  .file-chip{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-dim); text-align:center; word-break:break-all; padding:0 10px; }
+  .file-chip b{ color:var(--text); }
+
+  .image-actions{ display:flex; gap:10px; align-items:center; align-self:flex-start; flex-wrap:wrap; }
+  .icon-btn{
+    font-size:15px; line-height:1; color:var(--text-dim); background:transparent; border:1px solid var(--card-border);
+    border-radius:8px; padding:9px 12px; cursor:pointer; transition:color .3s ease, border-color .3s ease, background .3s ease;
+  }
+  .icon-btn:hover{ color:var(--text); border-color:var(--purple); background:rgba(155,109,255,.12); }
+
+  .panel-title{ font-size:12px; font-family:'JetBrains Mono',monospace; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px; }
+  .field-group{ background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:14px 16px; }
+  .field-group .field-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .field-group label{ font-size:11.5px; font-family:'JetBrains Mono',monospace; color:var(--text-dim); letter-spacing:.06em; text-transform:uppercase; }
+
+  select{
+    width:100%; background:rgba(0,0,0,.25); color:var(--text); border:1px solid var(--card-border);
+    border-radius:8px; padding:8px 10px; font-family:'JetBrains Mono',monospace; font-size:13px;
+  }
+  input[type=range]{ width:100%; accent-color:var(--purple); }
+
+  .detected-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+  .detected-fmt{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text); }
+  .detected-fmt.empty{ color:var(--text-dim); }
+  .arrow-sep{ color:var(--purple); font-size:14px; }
+
+  .status-msg{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text-dim); line-height:1.6; }
+  .status-msg.error{ color:var(--pink); }
+  .status-msg.ok{ color:var(--blue); }
+
+  .btn-primary{
+    font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:500; color:var(--text);
+    border:1px solid rgba(155,109,255,.5); background:rgba(155,109,255,.08);
+    padding:10px 16px; border-radius:10px; cursor:pointer; text-align:center;
+    transition:background .3s ease, border-color .3s ease;
+  }
+  .btn-primary:hover{ background:rgba(155,109,255,.2); border-color:var(--purple); }
+  .btn-primary:disabled{ opacity:.4; cursor:not-allowed; }
+
+  @media(max-width:900px){
+    .tools-wrap{ flex-direction:column-reverse; padding:2vh 6vw 8vh; }
+    .tools-left{ flex:1 1 auto; width:100%; }
+    .tools-right-col{ width:100%; }
+    .tools-right{ width:100%; max-width:none; }
+  }
+</style>
+</head>
+<body>
+
+<video class="bg-video" src="../assets/img/background/rwyn_nebula_extended.mp4" muted loop autoplay playsinline></video>
+<div class="bg-tint"></div>
+<canvas id="field"></canvas>
+<div class="cursor-glow" id="glow"></div>
+
+<header class="page-head">
+  <h1 class="page-title">Image Converter</h1>
+  <nav class="main-nav">
+    <ul>
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="../tools.html" class="active">Tools</a></li>
+      <li><a href="../mods.html">Mods</a></li>
+      <li><a href="../apps.html">Apps</a></li>
+      <li><a href="../index.html#contact">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="tools-wrap">
+  <div class="tools-left">
+    <div class="go-back-inline"><a href="../tools.html">← Go back</a></div>
+    <div>
+      <div class="panel-title">Image Converter</div>
+      <p class="status-msg" id="statusMsg">You give me an image, I convert it — between PNG, JPEG and WEBP. Everything happens right here in your browser, nothing is ever uploaded.</p>
+    </div>
+
+    <div class="field-group">
+      <div class="field-head"><label>Format</label></div>
+      <div class="detected-row">
+        <span class="detected-fmt empty" id="detectedFmt">no image yet</span>
+        <span class="arrow-sep">→</span>
+        <select id="targetSelect" disabled>
+          <option value="">upload an image first</option>
+        </select>
+      </div>
+      <div id="qualityRow" style="display:none; margin-top:6px;">
+        <span style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-dim);"><span id="qualityLabel">Quality</span>: <span id="qualityVal">85</span>%</span>
+        <input type="range" id="qualitySlider" min="1" max="100" value="85">
+      </div>
+    </div>
+
+    <button class="btn-primary" id="convertBtn" disabled>Convert &amp; download</button>
+  </div>
+
+  <div class="tools-right-col">
+    <div class="image-actions" id="imageActions" style="display:none;">
+      <button class="icon-btn" id="clearBtn" title="Remove image">🗑️</button>
+      <button class="icon-btn" id="newFileBtn" title="Upload new image">🖼️</button>
+    </div>
+    <div class="tools-right" id="dropZone">
+      <div id="dropContent">
+        <div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop an image here<br><span style="opacity:.6;">PNG · JPEG · WEBP</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept="image/*" style="display:none;">
+
+<script src="../assets/js/site.js"></script>
+<script>
+// ---------- output formats ----------
+const FORMATS = [
+  { value:'image/png',  label:'PNG — lossless, supports transparency', ext:'png' },
+  { value:'image/jpeg', label:'JPEG — smaller file, no transparency', ext:'jpg' },
+  { value:'image/webp', label:'WEBP — modern, smaller than PNG/JPEG', ext:'webp' }
+];
+
+const dropZone = document.getElementById('dropZone');
+const dropContent = document.getElementById('dropContent');
+const fileInput = document.getElementById('fileInput');
+const statusMsg = document.getElementById('statusMsg');
+const imageActions = document.getElementById('imageActions');
+const clearBtn = document.getElementById('clearBtn');
+const newFileBtn = document.getElementById('newFileBtn');
+const detectedFmt = document.getElementById('detectedFmt');
+const targetSelect = document.getElementById('targetSelect');
+const qualityRow = document.getElementById('qualityRow');
+const qualityLabel = document.getElementById('qualityLabel');
+const qualitySlider = document.getElementById('qualitySlider');
+const qualityVal = document.getElementById('qualityVal');
+const convertBtn = document.getElementById('convertBtn');
+
+let currentFile = null;
+let currentExt = null;
+let currentFileBase = 'image';
+
+function setStatus(msg, type){
+  statusMsg.textContent = msg;
+  statusMsg.className = 'status-msg' + (type ? ' '+type : '');
+}
+
+function loadImageEl(url){
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+    img.onload = ()=>resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+// mime type is the reliable signal when present; filename extension is only a fallback
+// (covers odd cases like a browser leaving file.type blank on drag-and-drop from some OSes)
+function detectExt(file){
+  const map = { 'image/png':'png', 'image/jpeg':'jpg', 'image/webp':'webp' };
+  if(map[file.type]) return map[file.type];
+  let ext = (file.name.split('.').pop() || '').toLowerCase();
+  if(ext === 'jpeg') ext = 'jpg';
+  return ext || 'unknown';
+}
+
+// ---------- UI wiring ----------
+dropZone.addEventListener('click', ()=>{ if(!currentFile) fileInput.click(); });
+dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e=>{
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', ()=>{ if(fileInput.files[0]) handleFile(fileInput.files[0]); });
+newFileBtn.addEventListener('click', e=>{ e.stopPropagation(); fileInput.click(); });
+clearBtn.addEventListener('click', e=>{ e.stopPropagation(); clearFile(); });
+
+targetSelect.addEventListener('change', ()=>{
+  const needsQuality = targetSelect.value === 'image/jpeg' || targetSelect.value === 'image/webp';
+  qualityRow.style.display = needsQuality ? '' : 'none';
+  if(needsQuality) qualityLabel.textContent = targetSelect.value === 'image/jpeg' ? 'JPEG quality' : 'WEBP quality';
+  convertBtn.disabled = !targetSelect.value;
+});
+qualitySlider.addEventListener('input', ()=>{ qualityVal.textContent = qualitySlider.value; });
+
+function populateTargets(currentExt){
+  const list = FORMATS.filter(f => f.ext !== currentExt);
+  targetSelect.innerHTML = list.map(f => `<option value="${f.value}">${f.label}</option>`).join('');
+  targetSelect.disabled = false;
+  targetSelect.dispatchEvent(new Event('change'));
+}
+
+function clearFile(){
+  dropContent.className = '';
+  dropContent.innerHTML = '<div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop an image here<br><span style="opacity:.6;">PNG · JPEG · WEBP</span></div>';
+  imageActions.style.display = 'none';
+  currentFile = null; currentExt = null;
+  currentFileBase = 'image';
+  detectedFmt.textContent = 'no image yet';
+  detectedFmt.classList.add('empty');
+  targetSelect.innerHTML = '<option value="">upload an image first</option>';
+  targetSelect.disabled = true;
+  qualityRow.style.display = 'none';
+  convertBtn.disabled = true;
+  setStatus('You give me an image, I convert it — between PNG, JPEG and WEBP. Everything happens right here in your browser, nothing is ever uploaded.', '');
+}
+
+async function handleFile(file){
+  if(!file.type.startsWith('image/')){ setStatus('Please upload an image file.', 'error'); return; }
+
+  const url = URL.createObjectURL(file);
+  let img;
+  try{ img = await loadImageEl(url); }
+  catch(e){ setStatus('That file has an image extension but your browser can\'t decode it.', 'error'); URL.revokeObjectURL(url); return; }
+
+  currentFile = file;
+  currentExt = detectExt(file);
+  currentFileBase = file.name.replace(/\.[^.]+$/, '');
+
+  detectedFmt.textContent = currentExt.toUpperCase();
+  detectedFmt.classList.remove('empty');
+
+  dropContent.className = 'file-loaded';
+  dropContent.innerHTML = '';
+  const imgEl = document.createElement('img');
+  imgEl.src = url;
+  dropContent.appendChild(imgEl);
+  const chip = document.createElement('div');
+  chip.className = 'file-chip';
+  chip.innerHTML = `<b>${file.name}</b> — ${img.naturalWidth}×${img.naturalHeight}, ${(file.size/1024).toFixed(1)} KB`;
+  dropContent.appendChild(chip);
+
+  imageActions.style.display = 'flex';
+  populateTargets(currentExt);
+  setStatus(`Loaded "${file.name}". Pick a target format on the left, then convert.`, 'ok');
+}
+
+// ---------- conversion: canvas covers PNG/JPEG/WEBP natively ----------
+async function convertImage(file, targetMime, quality){
+  const url = URL.createObjectURL(file);
+  const img = await loadImageEl(url);
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  URL.revokeObjectURL(url);
+  return new Promise(resolve => canvas.toBlob(resolve, targetMime, quality));
+}
+
+convertBtn.addEventListener('click', async ()=>{
+  if(!currentFile || !targetSelect.value) return;
+  convertBtn.disabled = true;
+  const originalLabel = convertBtn.textContent;
+  convertBtn.textContent = 'Converting…';
+  setStatus('Converting…', '');
+
+  try{
+    const needsQuality = targetSelect.value === 'image/jpeg' || targetSelect.value === 'image/webp';
+    const quality = needsQuality ? Number(qualitySlider.value)/100 : undefined;
+    const blob = await convertImage(currentFile, targetSelect.value, quality);
+    const ext = FORMATS.find(f => f.value === targetSelect.value)?.ext || 'out';
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${currentFileBase}.${ext}`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=> URL.revokeObjectURL(url), 5000);
+
+    setStatus(`Done — downloaded as ${currentFileBase}.${ext} (${(blob.size/1024).toFixed(1)} KB).`, 'ok');
+  }catch(e){
+    console.error(e);
+    setStatus(`Conversion failed: ${e.message || 'unknown error'}.`, 'error');
+  }finally{
+    convertBtn.disabled = false;
+    convertBtn.textContent = originalLabel;
+  }
+});
+</script>
+</body>
+</html>
