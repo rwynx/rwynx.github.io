@@ -149,6 +149,6 @@ if(document.getElementById('lightboxOverlay')){
 (function initFooter(){
   const footer = document.createElement('footer');
   footer.className = 'site-footer';
-  footer.innerHTML = '&copy; Rwyn · <a href="/privacy.html">Privacy</a>';
+  footer.innerHTML = '&copy; Rwyn · <a href="/privacy.html">Privacy</a> · <a href="https://baker.rwyn.ch" target="_blank" rel="noopener">RWX Baker</a>';
   document.body.appendChild(footer);
 })();
