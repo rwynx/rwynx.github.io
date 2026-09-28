@@ -82,14 +82,36 @@
     transition:transform .4s cubic-bezier(.16,1,.3,1), box-shadow .4s ease, border-color .4s ease;
   }
   .featured:hover{ transform:translateY(-4px); border-color:var(--purple); box-shadow:0 24px 60px -24px rgba(155,109,255,.7); }
-  .featured .f-tag{
-    display:inline-block; margin-bottom:10px; padding:3px 8px; border-radius:6px;
-    font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
-    color:#ffd200; border:1px solid rgba(255,210,0,.5);
-  }
-  .featured .f-name{ font-size:20px; font-weight:600; margin-bottom:6px; }
+  .featured .f-head{ display:flex; align-items:center; gap:14px; margin-bottom:12px; }
+  .featured .f-icon{ width:44px; height:44px; object-fit:contain; border-radius:8px; flex-shrink:0; }
+  .featured .f-name{ font-size:20px; font-weight:600; margin-top:6px; }
   .featured .f-desc{ font-size:13px; color:var(--text-dim); line-height:1.6; margin-bottom:12px; }
   .featured .f-link{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--blue); }
+
+  /* NEW tag — a light beam with a fading tail chases around the border. the beam is a big conic-gradient square
+     spinning behind the tag (transform only, no @property needed), clipped by overflow:hidden; ::after is the
+     solid inner fill that leaves just a ~1.5px ring of the spinning gradient visible. */
+  @keyframes fTagSpin{ from{ transform:translate(-50%,-50%) rotate(0deg); } to{ transform:translate(-50%,-50%) rotate(360deg); } }
+  @keyframes fTagGlow{ 0%,100%{ box-shadow:0 0 6px rgba(255,210,0,.25); } 50%{ box-shadow:0 0 16px rgba(255,210,0,.6); } }
+  .featured .f-tag{
+    position:relative; display:inline-block; isolation:isolate; overflow:hidden;
+    padding:4px 10px; border-radius:7px;
+    font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+    color:#ffd200; text-shadow:0 0 8px rgba(255,210,0,.6);
+    animation:fTagGlow 2.4s ease-in-out infinite;
+  }
+  .featured .f-tag::before{
+    content:''; position:absolute; z-index:-2; top:50%; left:50%; width:140px; height:140px;
+    background:conic-gradient(from 0deg, transparent 0deg, transparent 230deg, rgba(255,210,0,.15) 270deg, rgba(255,210,0,.6) 330deg, #fff2a8 360deg);
+    animation:fTagSpin 2.4s linear infinite;
+  }
+  .featured .f-tag::after{
+    content:''; position:absolute; z-index:-1; inset:1.5px; border-radius:5.5px;
+    background:rgb(14,10,28);
+  }
+  @media (prefers-reduced-motion: reduce){
+    .featured .f-tag, .featured .f-tag::before{ animation:none; }
+  }
 
   .contact ul{display:flex; flex-direction:column; gap:8px;}
   .contact a{ color:var(--text-dim); text-decoration:none; font-size:14px; transition:color .3s ease; }
@@ -186,8 +208,13 @@
     <h2 class="section-title">recent <span style="opacity:.5; text-transform:none; letter-spacing:0;">— recent stuff</span></h2>
 
     <a class="featured" href="https://baker.rwyn.ch" target="_blank" rel="noopener">
-      <span class="f-tag">new</span>
-      <div class="f-name">RWX Baker</div>
+      <div class="f-head">
+        <img class="f-icon" src="https://baker.rwyn.ch/rwxbaker-assets/ui/rwx-logo.png" alt="" width="44" height="44" onerror="this.style.display='none'">
+        <div>
+          <span class="f-tag">new</span>
+          <div class="f-name">RWX Baker</div>
+        </div>
+      </div>
       <div class="f-desc">Arknights: Endfield message generator. A pixel-faithful, in-browser recreation of the in-game Baker app. Make dialogues, export as PNG. Free, no trackers.</div>
       <span class="f-link">baker.rwyn.ch ↗</span>
     </a>
