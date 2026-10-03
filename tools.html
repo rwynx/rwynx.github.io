@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tools — Rwyn's Blog</title>
-<meta name="description" content="Free browser-based tools by Rwyn — an online image editor, an image resizer, an image converter, an AI background remover, and a NovelAI metadata inspector. Everything runs client-side, nothing is ever uploaded.">
+<meta name="description" content="Free browser-based tools by Rwyn — an online image editor, an image resizer, an image converter, an AI background remover, a NovelAI metadata inspector, and a quick mosaic censor. Everything runs client-side, nothing is ever uploaded.">
 <link rel="icon" type="image/png" href="assets/img/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -77,6 +77,7 @@
   html.js .tools-landing-grid.revealed .tool-card:nth-child(5){ transition-delay:.35s; }
   html.js .tools-landing-grid.revealed .tool-card:nth-child(6){ transition-delay:.43s; }
   html.js .tools-landing-grid.revealed .tool-card:nth-child(7){ transition-delay:.51s; }
+  html.js .tools-landing-grid.revealed .tool-card:nth-child(8){ transition-delay:.59s; }
   .tool-card.wip{ transition-property:opacity, transform, box-shadow; }
 
   .tool-icon{ font-size:34px; line-height:1; }
@@ -125,8 +126,14 @@
       <div class="tool-name">Image Editor</div>
       <div class="tool-desc">You give me an image (or start blank), I let you edit it — add text, draw, add shapes, censor parts of it with mosaic or blur, layer in a second image, crop, flip or rotate. A free image editor that runs entirely in your browser.</div>
     </a>
+    <a class="tool-card" href="tools/QuickCensor.html">
+      <img src="assets/img/resources/quick-censor.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'🔲'}))">
+      <span class="tool-tag">live</span>
+      <div class="tool-name">Quick Censor</div>
+      <div class="tool-desc">You give me an image, a GIF, or a whole ZIP, I let you mosaic parts of it out with a click or a drag — built-in Pixiv minimum-size warnings included. Runs entirely in your browser.</div>
+    </a>
     <a class="tool-card" href="tools/ImageResizer.html">
-      <img src="assets/img/resources/image-resizer.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'📐'}))">
+      <img src="assets/img/resources/image-resizer.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'📏'}))">
       <span class="tool-tag">live</span>
       <div class="tool-name">Image Resizer</div>
       <div class="tool-desc">You give me an image and a size, I resize it — exact pixels, a percentage, or a one-click Twitch/YouTube preset, all in your browser.</div>
