@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Censor — Rwyn's Blog</title>
+<meta name="description" content="Censor images with a click or a drag — mosaic out parts of a photo, a whole GIF, or a batch ZIP, right in your browser. Pixiv-minimum-size warnings built in, nothing is ever uploaded.">
+<link rel="icon" type="image/png" href="../assets/img/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="../assets/css/site.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://unpkg.com/gif-frames@1.0.1/dist/gif-frames.js"></script>
+<style>
+  header.page-head{ position:relative; z-index:2; max-width:1200px; margin:0 auto; padding:6vh 6vw 2vh; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
+  header.page-head nav.main-nav ul{ gap:26px; }
+  .go-back-inline{ margin-bottom:4px; }
+  .go-back-inline a{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px; text-decoration:none; color:var(--text-dim); transition:color .3s ease; }
+  .go-back-inline a:hover{ color:var(--purple); }
+
+  .tools-wrap{ position:relative; z-index:2; max-width:1200px; margin:0 auto; display:flex; gap:34px; align-items:flex-start; padding:2vh 6vw 10vh; }
+  .tools-left{ flex:0 0 360px; display:flex; flex-direction:column; gap:16px; }
+
+  .tools-right-col{ flex:1; display:flex; flex-direction:column; align-items:stretch; gap:14px; min-width:0; }
+
+  .panel-title{ font-size:12px; font-family:'JetBrains Mono',monospace; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px; }
+  .field-group{ background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:14px 16px; }
+  .field-group .field-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .field-group label{ font-size:11.5px; font-family:'JetBrains Mono',monospace; color:var(--text-dim); letter-spacing:.06em; text-transform:uppercase; }
+
+  .preset-grid{ display:flex; flex-wrap:wrap; gap:8px; }
+  .preset-btn{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text); border:1px solid rgba(155,109,255,.4);
+    padding:6px 10px; border-radius:8px; background:transparent; cursor:pointer; transition:background .2s ease, border-color .2s ease;
+  }
+  .preset-btn:hover{ background:rgba(155,109,255,.15); border-color:var(--purple); }
+  .preset-btn:disabled{ opacity:.35; cursor:not-allowed; }
+  .preset-btn:disabled:hover{ background:transparent; border-color:rgba(155,109,255,.4); }
+
+  .dim-row{ display:flex; align-items:center; gap:14px; }
+  .dim-field{ flex:1; display:flex; flex-direction:column; gap:6px; }
+  .dim-field span{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-dim); }
+  input[type=range]{ width:100%; accent-color:var(--purple); }
+
+  .icon-btn{
+    font-size:15px; line-height:1; color:var(--text-dim); background:transparent; border:1px solid var(--card-border);
+    border-radius:8px; padding:9px 12px; cursor:pointer; transition:color .3s ease, border-color .3s ease, background .3s ease;
+  }
+  .icon-btn:hover{ color:var(--text); border-color:var(--purple); background:rgba(155,109,255,.12); }
+  .icon-btn:disabled{ opacity:.35; cursor:not-allowed; }
+  .icon-btn:disabled:hover{ background:transparent; border-color:var(--card-border); color:var(--text-dim); }
+
+  .btn-primary{
+    font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:500; color:var(--text);
+    border:1px solid rgba(155,109,255,.5); background:rgba(155,109,255,.08);
+    padding:9px 15px; border-radius:10px; cursor:pointer; text-align:center;
+    transition:background .3s ease, border-color .3s ease;
+  }
+  .btn-primary:hover{ background:rgba(155,109,255,.2); border-color:var(--purple); }
+  .btn-primary:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn-primary:disabled:hover{ background:rgba(155,109,255,.08); border-color:rgba(155,109,255,.5); }
+
+  .status-msg{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text-dim); line-height:1.6; }
+  .status-msg.error{ color:var(--pink); }
+  .status-msg.ok{ color:var(--blue); }
+  .status-msg.warn{ color:#ffd200; }
+
+  .image-actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+  /* ---- stage: dark scrollable box holding both canvases, mirrors the look of the other tools'
+     preview panels but stays overflow:auto + unconstrained-aspect since images here can be any size
+     and zoomed well past 100% (the original tool's whole reason for a zoom slider). ---- */
+  .censor-stage{
+    position:relative; width:100%; min-height:320px; max-height:72vh;
+    border-radius:20px; background:var(--card-bg); border:1px solid var(--card-border);
+    overflow:auto; display:flex; align-items:center; justify-content:center;
+    transition:border-color .3s ease, background .3s ease;
+  }
+  .censor-stage.drag-over{ border-color:var(--purple); background:rgba(155,109,255,.08); }
+  .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; pointer-events:none; }
+  .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
+  #displayCanvas{ display:block; border-radius:14px; flex-shrink:0; }
+  #baseCanvas{ display:none; }
+
+  .frame-row{ display:flex; align-items:center; gap:10px; }
+  .frame-row .preset-btn{ flex:0 0 auto; }
+  .frame-count{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); white-space:nowrap; }
+
+  .instructions-grid{ display:grid; grid-template-columns:1fr; gap:8px; font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-dim); line-height:1.5; }
+  .instructions-grid b{ color:var(--text); font-weight:600; }
+
+  @media(max-width:900px){
+    .tools-wrap{ flex-direction:column-reverse; padding:2vh 6vw 8vh; }
+    .tools-left{ flex:1 1 auto; width:100%; }
+    .tools-right-col{ width:100%; }
+  }
+</style>
+</head>
+<body>
+
+<video class="bg-video" src="../assets/img/background/rwyn_nebula_extended.mp4" muted loop autoplay playsinline></video>
+<div class="bg-tint"></div>
+<canvas id="field"></canvas>
+<div class="cursor-glow" id="glow"></div>
+
+<header class="page-head">
+  <h1 class="page-title">Quick Censor</h1>
+  <nav class="main-nav">
+    <ul>
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="../tools.html" class="active">Tools</a></li>
+      <li><a href="../mods.html">Mods</a></li>
+      <li><a href="../apps.html">Apps</a></li>
+      <li><a href="../index.html#contact">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="tools-wrap">
+  <div class="tools-left">
+    <div class="go-back-inline"><a href="../tools.html">← Go back</a></div>
+    <div>
+      <div class="panel-title">Quick Censor</div>
+      <p class="status-msg" id="statusMsg">Upload images to begin. Click to mosaic a spot, drag to cover an area — all in your browser.</p>
+    </div>
+
+    <div class="field-group">
+      <div class="field-head"><label>Upload</label></div>
+      <div class="preset-grid">
+        <button class="preset-btn" id="uploadImageBtn">Image(s)</button>
+        <button class="preset-btn" id="uploadGifBtn">GIF</button>
+        <button class="preset-btn" id="uploadZipBtn">ZIP</button>
+      </div>
+    </div>
+
+    <div class="field-group" id="frameGroup" style="display:none;">
+      <div class="field-head"><label>Frame</label><span class="frame-count"><span id="currentImageIndexDisplay">0</span> / <span id="totalImagesDisplay">0</span></span></div>
+      <input type="range" id="imageSlider" min="0" value="0" disabled>
+      <div class="frame-row" style="margin-top:10px; justify-content:center;">
+        <button class="preset-btn" id="prevImageBtn" disabled>← Previous</button>
+        <button class="preset-btn" id="nextImageBtn" disabled>Next →</button>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-head"><label>Brush size</label></div>
+      <div class="dim-row">
+        <div class="dim-field"><span>Width: <b id="censorWidthDisplay" style="color:var(--text);">20</b>px</span><input type="range" id="censorWidthSlider" min="10" max="500" value="20"></div>
+        <div class="dim-field"><span>Height: <b id="censorHeightDisplay" style="color:var(--text);">20</b>px</span><input type="range" id="censorHeightSlider" min="10" max="500" value="20"></div>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-head"><label>Mosaic block size</label><span class="frame-count"><span id="mosaicBlockSizeDisplay">4</span>px</span></div>
+      <input type="range" id="mosaicBlockSizeSlider" min="4" max="100" value="4">
+    </div>
+
+    <div class="field-group">
+      <div class="field-head"><label>Zoom</label><span class="frame-count"><span id="zoomDisplay">100%</span></span></div>
+      <input type="range" id="zoomSlider" min="0.1" max="5.0" step="0.1" value="1.0">
+      <div style="margin-top:6px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-dim); text-align:center;">100% = fit to screen</div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-head"><label>Instructions</label></div>
+      <div class="instructions-grid">
+        <div><b>Click/tap:</b> apply once, move to next frame</div>
+        <div><b>Click + drag:</b> apply along the dragged area</div>
+        <div><b>Hold right mouse:</b> apply continuously (desktop)</div>
+        <div><b>Touch:</b> apply without advancing frame</div>
+        <div><b>Hold Ctrl:</b> apply without advancing frame</div>
+        <div><b>Hover:</b> preview the area before applying (desktop)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tools-right-col">
+    <div class="image-actions" id="imageActions" style="display:none;">
+      <button class="btn-primary" id="downloadCurrentBtn">Download Current</button>
+      <button class="btn-primary" id="downloadZipBtn">Download All as ZIP</button>
+      <button class="icon-btn" id="undoBtn" title="Revert current image to original">↶</button>
+      <button class="icon-btn" id="clearBtn" title="Clear everything">🗑️</button>
+    </div>
+    <div class="censor-stage" id="dropZone">
+      <div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Drag &amp; drop, paste, or use the upload buttons on the left<br>Images, a GIF, or a ZIP are all fine</div>
+      <canvas id="displayCanvas"></canvas>
+      <canvas id="baseCanvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="imageUploadInput" accept="image/*" multiple style="display:none;">
+<input type="file" id="gifUploadInput" accept="image/gif" style="display:none;">
+<input type="file" id="zipUploadInput" accept=".zip,application/zip,application/x-zip,application/x-zip-compressed" style="display:none;">
+
+<script src="../assets/js/site.js"></script>
+<script>
+// Quick Censor — originally a small client-side Pixiv mosaic-censoring tool a friend built and
+// left as free-to-reuse (the source said so itself). Restyled to match the rest of the site and
+// wired into the Tools page; the censoring logic (mosaic math, drag/hover preview, GIF/ZIP batch
+// handling) is carried over close to as-is since it already worked.
+
+const dropZone = document.getElementById('dropZone');
+const dropHint = document.getElementById('dropHint');
+const displayCanvas = document.getElementById('displayCanvas');
+const displayCtx = displayCanvas.getContext('2d');
+const baseCanvas = document.getElementById('baseCanvas');
+const baseCtx = baseCanvas.getContext('2d');
+
+const statusMsg = document.getElementById('statusMsg');
+const imageActions = document.getElementById('imageActions');
+const frameGroup = document.getElementById('frameGroup');
+
+const uploadImageBtn = document.getElementById('uploadImageBtn');
+const uploadGifBtn = document.getElementById('uploadGifBtn');
+const uploadZipBtn = document.getElementById('uploadZipBtn');
+const imageUploadInput = document.getElementById('imageUploadInput');
+const gifUploadInput = document.getElementById('gifUploadInput');
+const zipUploadInput = document.getElementById('zipUploadInput');
+
+const downloadCurrentBtn = document.getElementById('downloadCurrentBtn');
+const downloadZipBtn = document.getElementById('downloadZipBtn');
+const undoBtn = document.getElementById('undoBtn');
+const clearBtn = document.getElementById('clearBtn');
+
+const imageSlider = document.getElementById('imageSlider');
+const currentImageIndexDisplay = document.getElementById('currentImageIndexDisplay');
+const totalImagesDisplay = document.getElementById('totalImagesDisplay');
+const prevImageBtn = document.getElementById('prevImageBtn');
+const nextImageBtn = document.getElementById('nextImageBtn');
+
+const censorWidthSlider = document.getElementById('censorWidthSlider');
+const censorWidthDisplay = document.getElementById('censorWidthDisplay');
+const censorHeightSlider = document.getElementById('censorHeightSlider');
+const censorHeightDisplay = document.getElementById('censorHeightDisplay');
+const mosaicBlockSizeSlider = document.getElementById('mosaicBlockSizeSlider');
+const mosaicBlockSizeDisplay = document.getElementById('mosaicBlockSizeDisplay');
+const zoomSlider = document.getElementById('zoomSlider');
+const zoomDisplay = document.getElementById('zoomDisplay');
+
+function setStatus(msg, type){
+  statusMsg.textContent = msg;
+  statusMsg.className = 'status-msg' + (type ? ' ' + type : '');
+}
+
+// --- State ---
+let processedImages = []; // { originalDataURL, currentDataURL }
+let currentImageIndex = -1;
+
+let draggingToCensor = false;
+let lastX = 0, lastY = 0;
+
+let censorAreaWidth = parseInt(censorWidthSlider.value);
+let censorAreaHeight = parseInt(censorHeightSlider.value);
+let currentMosaicBlockSize = parseInt(mosaicBlockSizeSlider.value);
+let pixivMinimumBlockSize = 4;
+let lastImageDimensions = { width: 0, height: 0 };
+
+let rightMouseDown = false;
+let rightMouseInterval = null;
+const rightMouseDelay = 500;
+
+let currentMouseX = -1, currentMouseY = -1;
+let mouseOverCanvas = false;
+
+function resizeCanvas(){ renderCurrentImage(); }
+
+function renderCurrentImage(){
+  baseCtx.clearRect(0, 0, baseCanvas.width, baseCanvas.height);
+  displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+
+  if(currentImageIndex !== -1 && processedImages[currentImageIndex]){
+    dropHint.style.display = 'none';
+    const imageData = processedImages[currentImageIndex].currentDataURL;
+
+    const img = new Image();
+    img.onload = () => {
+      const actualWidth = img.naturalWidth;
+      const actualHeight = img.naturalHeight;
+
+      displayCanvas.width = actualWidth;
+      displayCanvas.height = actualHeight;
+      baseCanvas.width = actualWidth;
+      baseCanvas.height = actualHeight;
+
+      baseCtx.clearRect(0, 0, baseCanvas.width, baseCanvas.height);
+      baseCtx.drawImage(img, 0, 0, actualWidth, actualHeight);
+
+      const containerWidth = dropZone.clientWidth - 32;
+      const maxHeight = window.innerHeight * 0.68;
+      const aspectRatio = actualWidth / actualHeight;
+
+      let displayWidth = actualWidth;
+      let displayHeight = actualHeight;
+
+      if(displayWidth > containerWidth){
+        displayWidth = containerWidth;
+        displayHeight = containerWidth / aspectRatio;
+      }
+      if(displayHeight > maxHeight){
+        displayHeight = maxHeight;
+        displayWidth = maxHeight * aspectRatio;
+      }
+
+      const zoomLevel = parseFloat(zoomSlider.value);
+      displayWidth *= zoomLevel;
+      displayHeight *= zoomLevel;
+      displayCanvas.style.width = displayWidth + 'px';
+      displayCanvas.style.height = displayHeight + 'px';
+
+      const dimensionsChanged = (actualWidth !== lastImageDimensions.width || actualHeight !== lastImageDimensions.height);
+      if(dimensionsChanged){
+        lastImageDimensions.width = actualWidth;
+        lastImageDimensions.height = actualHeight;
+      }
+
+      pixivMinimumBlockSize = getPixivMinimumBlockSize();
+      mosaicBlockSizeSlider.min = 4;
+      mosaicBlockSizeSlider.value = currentMosaicBlockSize;
+      mosaicBlockSizeDisplay.textContent = currentMosaicBlockSize;
+
+      if(currentMosaicBlockSize < pixivMinimumBlockSize){
+        setStatus(`Mosaic block size (${currentMosaicBlockSize}px) is below Pixiv's recommended minimum (${pixivMinimumBlockSize}px) for this image.`, 'warn');
+      } else {
+        setStatus('Image loaded. Click to apply mosaic, or drag to censor an area.', '');
+      }
+
+      copyBaseToDisplay();
+    };
+    img.onerror = () => setStatus('Error loading image data for display.', 'error');
+    img.src = imageData;
+
+    imageSlider.max = processedImages.length - 1;
+    imageSlider.value = currentImageIndex;
+    currentImageIndexDisplay.textContent = currentImageIndex + 1;
+    totalImagesDisplay.textContent = processedImages.length;
+    imageSlider.disabled = processedImages.length <= 1;
+
+    prevImageBtn.disabled = currentImageIndex <= 0;
+    nextImageBtn.disabled = currentImageIndex >= processedImages.length - 1;
+
+    imageActions.style.display = 'flex';
+    frameGroup.style.display = processedImages.length > 1 ? 'block' : 'none';
+  } else {
+    currentImageIndexDisplay.textContent = 0;
+    totalImagesDisplay.textContent = 0;
+    imageSlider.max = 0;
+    imageSlider.value = 0;
+    imageSlider.disabled = true;
+    prevImageBtn.disabled = true;
+    nextImageBtn.disabled = true;
+    mosaicBlockSizeSlider.value = 4;
+    mosaicBlockSizeDisplay.textContent = 4;
+    setStatus('Upload images to begin. Click to mosaic a spot, drag to cover an area — all in your browser.', '');
+    dropHint.style.display = 'block';
+    imageActions.style.display = 'none';
+    frameGroup.style.display = 'none';
+  }
+}
+
+function applyPreviewMosaic(mouseX, mouseY){
+  if(currentImageIndex === -1 || draggingToCensor) return;
+  const mosaicBlockSize = currentMosaicBlockSize;
+
+  const censorStartX = Math.max(0, mouseX - censorAreaWidth / 2);
+  const censorStartY = Math.max(0, mouseY - censorAreaHeight / 2);
+  const censorEndX = Math.min(displayCanvas.width, mouseX + censorAreaWidth / 2);
+  const censorEndY = Math.min(displayCanvas.height, mouseY + censorAreaHeight / 2);
+
+  const snappedStartX = Math.floor(censorStartX / mosaicBlockSize) * mosaicBlockSize;
+  const snappedStartY = Math.floor(censorStartY / mosaicBlockSize) * mosaicBlockSize;
+
+  const widthToGet = censorEndX - snappedStartX;
+  const heightToGet = censorEndY - snappedStartY;
+
+  if(widthToGet > 0 && heightToGet > 0){
+    const imageData = displayCtx.getImageData(snappedStartX, snappedStartY, widthToGet, heightToGet);
+    applyMosaic(imageData, mosaicBlockSize);
+    displayCtx.putImageData(imageData, snappedStartX, snappedStartY);
+  }
+}
+
+function copyBaseToDisplay(){
+  displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+  displayCtx.drawImage(baseCanvas, 0, 0);
+  if(mouseOverCanvas && currentMouseX >= 0 && currentMouseY >= 0){
+    applyPreviewMosaic(currentMouseX, currentMouseY);
+  }
+}
+
+function applyMosaic(imageData, blockSize){
+  const data = imageData.data;
+  const width = imageData.width;
+  const height = imageData.height;
+
+  for(let y = 0; y < height; y += blockSize){
+    for(let x = 0; x < width; x += blockSize){
+      const pixelIndex = (y * width + x) * 4;
+      const r = data[pixelIndex], g = data[pixelIndex+1], b = data[pixelIndex+2], a = data[pixelIndex+3];
+      for(let by = 0; by < blockSize; by++){
+        for(let bx = 0; bx < blockSize; bx++){
+          const currentPixelIndex = ((y + by) * width + (x + bx)) * 4;
+          if((y + by) < height && (x + bx) < width){
+            data[currentPixelIndex] = r;
+            data[currentPixelIndex+1] = g;
+            data[currentPixelIndex+2] = b;
+            data[currentPixelIndex+3] = a;
+          }
+        }
+      }
+    }
+  }
+}
+
+function getPixivMinimumBlockSize(){
+  const maxDim = Math.max(displayCanvas.width, displayCanvas.height);
+  let minBlockSize = 4;
+  if(maxDim > 400) minBlockSize = Math.ceil(maxDim / 100);
+  return minBlockSize;
+}
+
+// --- Drag and drop ---
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  if(currentImageIndex === -1){ dropZone.classList.add('drag-over'); setStatus('Drop your image(s), GIF, or ZIP file here.', ''); }
+});
+dropZone.addEventListener('dragleave', e => {
+  e.preventDefault();
+  if(currentImageIndex === -1){ dropZone.classList.remove('drag-over'); setStatus('Upload images to begin. Click to mosaic a spot, drag to cover an area — all in your browser.', ''); }
+});
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  if(currentImageIndex === -1){
+    dropZone.classList.remove('drag-over');
+    const files = e.dataTransfer.files;
+    if(files.length > 0) handleDroppedFiles(files);
+  }
+});
+
+function handleDroppedFiles(files){
+  if(files.length === 1){
+    const file = files[0];
+    if(file.type === 'image/gif') handleGifFile(file);
+    else if(file.type === 'application/zip' || file.type === 'application/x-zip-compressed' || file.name.endsWith('.zip')) handleZipFile(file);
+    else if(file.type.startsWith('image/')) handleImageFiles([file]);
+    else setStatus('Unsupported file type dropped.', 'error');
+  } else {
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if(imageFiles.length > 0) handleImageFiles(imageFiles);
+    else setStatus('No supported image files found in drop.', 'error');
+  }
+}
+
+function handlePaste(e){
+  const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+  let imageFile = null;
+  for(let i = 0; i < items.length; i++){
+    if(items[i].type.indexOf('image') !== -1){ imageFile = items[i].getAsFile(); break; }
+  }
+  if(imageFile) handleImageFiles([imageFile]);
+}
+
+// --- File handlers ---
+function handleImageFiles(files){
+  const sortedFiles = Array.from(files).sort((a, b) => a.name.localeCompare(b.name));
+  processedImages = [];
+  currentImageIndex = -1;
+  setStatus('Loading images...', '');
+
+  const filePromises = sortedFiles.map(file => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve({ originalDataURL: e.target.result, currentDataURL: e.target.result });
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  }));
+
+  Promise.all(filePromises).then(newImages => {
+    processedImages = newImages;
+    currentImageIndex = 0;
+    renderCurrentImage();
+    setStatus(`Loaded ${newImages.length} image(s).`, 'ok');
+  }).catch(error => { setStatus('Error loading images.', 'error'); console.error(error); });
+}
+
+function handleGifFile(file){
+  processedImages = [];
+  currentImageIndex = -1;
+  setStatus('Extracting frames from GIF...', '');
+
+  const objectURL = URL.createObjectURL(file);
+  gifFrames({ url: objectURL, frames: 'all', outputType: 'canvas', cumulative: true }).then(frameData => {
+    setStatus(`Processing ${frameData.length} frames...`, '');
+    const framePromises = frameData.map(frame => new Promise(resolve => {
+      const frameCanvas = frame.getImage();
+      const dataURL = frameCanvas.toDataURL();
+      resolve({ originalDataURL: dataURL, currentDataURL: dataURL });
+    }));
+    return Promise.all(framePromises);
+  }).then(newImages => {
+    processedImages = newImages;
+    currentImageIndex = 0;
+    renderCurrentImage();
+    setStatus(`Extracted ${processedImages.length} frames from GIF.`, 'ok');
+  }).catch(error => { setStatus('Error processing GIF.', 'error'); console.error(error); })
+    .finally(() => URL.revokeObjectURL(objectURL));
+}
+
+async function handleZipFile(file){
+  processedImages = [];
+  currentImageIndex = -1;
+  setStatus('Unzipping and loading images...', '');
+
+  try{
+    const zip = await JSZip.loadAsync(file);
+    const imageFiles = [];
+    zip.forEach((relativePath, zipEntry) => {
+      if(!zipEntry.dir && /\.(jpe?g|png|gif)$/i.test(zipEntry.name)) imageFiles.push(zipEntry);
+    });
+    imageFiles.sort((a, b) => a.name.localeCompare(b.name));
+
+    const imagePromises = imageFiles.map(zipEntry => zipEntry.async('base64').then(base64 => {
+      const mimeType = `image/${zipEntry.name.split('.').pop().toLowerCase()}`;
+      return `data:${mimeType};base64,${base64}`;
+    }).then(dataUrl => ({ originalDataURL: dataUrl, currentDataURL: dataUrl })));
+
+    const loadedImages = (await Promise.all(imagePromises)).filter(img => img !== null);
+    if(loadedImages.length > 0){
+      processedImages = loadedImages;
+      currentImageIndex = 0;
+      renderCurrentImage();
+      setStatus(`Loaded ${loadedImages.length} image(s) from the ZIP file.`, 'ok');
+    } else {
+      setStatus('No valid images found in the ZIP file.', 'error');
+    }
+  } catch(error){ setStatus('Error reading ZIP file.', 'error'); console.error(error); }
+}
+
+// --- Upload buttons ---
+uploadImageBtn.addEventListener('click', () => imageUploadInput.click());
+uploadGifBtn.addEventListener('click', () => gifUploadInput.click());
+uploadZipBtn.addEventListener('click', () => zipUploadInput.click());
+
+imageUploadInput.addEventListener('change', e => { if(e.target.files.length) handleImageFiles(e.target.files); e.target.value = ''; });
+gifUploadInput.addEventListener('change', e => { if(e.target.files[0]) handleGifFile(e.target.files[0]); e.target.value = ''; });
+zipUploadInput.addEventListener('change', e => { if(e.target.files[0]) handleZipFile(e.target.files[0]); e.target.value = ''; });
+
+window.addEventListener('paste', handlePaste);
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('load', () => { resizeCanvas(); });
+
+// --- Clear / undo ---
+clearBtn.addEventListener('click', () => {
+  processedImages = [];
+  currentImageIndex = -1;
+  renderCurrentImage();
+  setStatus('All content cleared. Upload new images!', '');
+});
+
+undoBtn.addEventListener('click', () => {
+  if(currentImageIndex === -1 || !processedImages[currentImageIndex]){ setStatus('No image to undo!', 'error'); return; }
+  processedImages[currentImageIndex].currentDataURL = processedImages[currentImageIndex].originalDataURL;
+  renderCurrentImage();
+  setStatus('Current image reverted to original state.', 'ok');
+});
+
+// --- Frame nav ---
+imageSlider.addEventListener('input', () => { currentImageIndex = parseInt(imageSlider.value); renderCurrentImage(); });
+prevImageBtn.addEventListener('click', () => { if(currentImageIndex > 0){ currentImageIndex--; renderCurrentImage(); } });
+nextImageBtn.addEventListener('click', () => { if(currentImageIndex < processedImages.length - 1){ currentImageIndex++; renderCurrentImage(); } });
+
+// --- Sliders ---
+censorWidthSlider.addEventListener('input', () => { censorAreaWidth = parseInt(censorWidthSlider.value); censorWidthDisplay.textContent = censorAreaWidth; });
+censorHeightSlider.addEventListener('input', () => { censorAreaHeight = parseInt(censorHeightSlider.value); censorHeightDisplay.textContent = censorAreaHeight; });
+mosaicBlockSizeSlider.addEventListener('input', () => {
+  currentMosaicBlockSize = parseInt(mosaicBlockSizeSlider.value);
+  mosaicBlockSizeDisplay.textContent = currentMosaicBlockSize;
+  if(currentMosaicBlockSize < pixivMinimumBlockSize){
+    setStatus(`Mosaic block size (${currentMosaicBlockSize}px) is below Pixiv's recommended minimum (${pixivMinimumBlockSize}px) for this image.`, 'warn');
+  } else {
+    setStatus(currentImageIndex !== -1 ? 'Image loaded. Click to apply mosaic, or drag to censor an area.' : 'Upload images to begin. Click to mosaic a spot, drag to cover an area — all in your browser.', '');
+  }
+});
+zoomSlider.addEventListener('input', () => {
+  const val = parseFloat(zoomSlider.value);
+  zoomDisplay.textContent = Math.round(val * 100) + '%';
+  renderCurrentImage();
+});
+
+// --- Canvas interaction ---
+function getEventCoordinates(e){
+  const rect = displayCanvas.getBoundingClientRect();
+  let clientX, clientY;
+  if(e.touches && e.touches.length > 0){ clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
+  else { clientX = e.clientX; clientY = e.clientY; }
+  const displayX = clientX - rect.left;
+  const displayY = clientY - rect.top;
+  const scaleX = displayCanvas.width / rect.width;
+  const scaleY = displayCanvas.height / rect.height;
+  return { x: displayX * scaleX, y: displayY * scaleY };
+}
+
+function applyPermanentMosaic(x, y){
+  const mosaicBlockSize = currentMosaicBlockSize;
+  const censorStartX = Math.max(0, x - censorAreaWidth / 2);
+  const censorStartY = Math.max(0, y - censorAreaHeight / 2);
+  const censorEndX = Math.min(displayCanvas.width, x + censorAreaWidth / 2);
+  const censorEndY = Math.min(displayCanvas.height, y + censorAreaHeight / 2);
+  const snappedStartX = Math.floor(censorStartX / mosaicBlockSize) * mosaicBlockSize;
+  const snappedStartY = Math.floor(censorStartY / mosaicBlockSize) * mosaicBlockSize;
+  const widthToGet = censorEndX - snappedStartX;
+  const heightToGet = censorEndY - snappedStartY;
+  if(widthToGet > 0 && heightToGet > 0){
+    const imageData = baseCtx.getImageData(snappedStartX, snappedStartY, widthToGet, heightToGet);
+    applyMosaic(imageData, mosaicBlockSize);
+    baseCtx.putImageData(imageData, snappedStartX, snappedStartY);
+  }
+}
+
+function advanceToNextImage(){
+  currentImageIndex++;
+  if(currentImageIndex >= processedImages.length){
+    currentImageIndex = processedImages.length - 1;
+    setStatus('Reached the last image.', '');
+    return false;
+  }
+  renderCurrentImage();
+  return true;
+}
+
+function applyMosaicAndAdvance(x, y, shouldAdvance = true){
+  applyPermanentMosaic(x, y);
+  processedImages[currentImageIndex].currentDataURL = baseCanvas.toDataURL();
+  if(shouldAdvance){
+    const advanced = advanceToNextImage();
+    if(advanced) setStatus('Mosaic applied! Moving to next image...', 'ok');
+    else setStatus('Mosaic applied! All images processed.', 'ok');
+    return advanced;
+  } else {
+    setStatus('Mosaic applied! (Ctrl held — staying on current frame)', 'ok');
+    copyBaseToDisplay();
+    return true;
+  }
+}
+
+displayCanvas.addEventListener('click', e => {
+  if(currentImageIndex === -1 || draggingToCensor) return;
+  const rect = displayCanvas.getBoundingClientRect();
+  const clickX = (e.clientX - rect.left) * (displayCanvas.width / rect.width);
+  const clickY = (e.clientY - rect.top) * (displayCanvas.height / rect.height);
+  const shouldAdvance = !e.ctrlKey;
+  applyMosaicAndAdvance(clickX, clickY, shouldAdvance);
+});
+
+displayCanvas.addEventListener('mousedown', e => {
+  if(e.button === 2){
+    e.preventDefault();
+    if(currentImageIndex === -1){ setStatus('Please upload an image first!', 'error'); return; }
+    rightMouseDown = true;
+    const coords = getEventCoordinates(e);
+    const shouldAdvance = !e.ctrlKey;
+    const advanced = applyMosaicAndAdvance(coords.x, coords.y, shouldAdvance);
+    if(shouldAdvance && advanced && rightMouseDown){
+      rightMouseInterval = setInterval(() => {
+        if(!rightMouseDown || currentImageIndex === -1){ clearInterval(rightMouseInterval); rightMouseInterval = null; return; }
+        const mosaicX = currentMouseX >= 0 ? currentMouseX : displayCanvas.width / 2;
+        const mosaicY = currentMouseY >= 0 ? currentMouseY : displayCanvas.height / 2;
+        const stillAdvancing = applyMosaicAndAdvance(mosaicX, mosaicY, true);
+        if(!stillAdvancing){ clearInterval(rightMouseInterval); rightMouseInterval = null; rightMouseDown = false; }
+      }, rightMouseDelay);
+    }
+    return;
+  }
+  if(currentImageIndex === -1){ setStatus('Please upload an image first!', 'error'); return; }
+  if(e.button === 0){
+    draggingToCensor = true;
+    const coords = getEventCoordinates(e);
+    lastX = coords.x; lastY = coords.y;
+    applyPermanentMosaic(lastX, lastY);
+  }
+});
+
+displayCanvas.addEventListener('mouseup', e => {
+  if(e.button === 2){ rightMouseDown = false; if(rightMouseInterval){ clearInterval(rightMouseInterval); rightMouseInterval = null; } return; }
+  if(currentImageIndex === -1) return;
+  if(draggingToCensor){
+    draggingToCensor = false;
+    processedImages[currentImageIndex].currentDataURL = baseCanvas.toDataURL();
+    setStatus('Censoring by drag saved!', 'ok');
+  }
+  copyBaseToDisplay();
+});
+
+displayCanvas.addEventListener('contextmenu', e => e.preventDefault());
+
+displayCanvas.addEventListener('mouseleave', () => {
+  if(rightMouseDown){ rightMouseDown = false; if(rightMouseInterval){ clearInterval(rightMouseInterval); rightMouseInterval = null; } }
+});
+
+displayCanvas.addEventListener('mousemove', e => {
+  if(currentImageIndex === -1) return;
+  const coords = getEventCoordinates(e);
+  currentMouseX = coords.x; currentMouseY = coords.y;
+
+  if(!draggingToCensor){
+    copyBaseToDisplay();
+  } else {
+    const currentX = coords.x, currentY = coords.y;
+    const mosaicBlockSize = currentMosaicBlockSize;
+    const minX = Math.min(lastX, currentX) - censorAreaWidth / 2;
+    const minY = Math.min(lastY, currentY) - censorAreaHeight / 2;
+    const maxX = Math.max(lastX, currentX) + censorAreaWidth / 2;
+    const maxY = Math.max(lastY, currentY) + censorAreaHeight / 2;
+    const censorStartX = Math.max(0, minX), censorStartY = Math.max(0, minY);
+    const censorEndX = Math.min(displayCanvas.width, maxX), censorEndY = Math.min(displayCanvas.height, maxY);
+    const snappedStartX = Math.floor(censorStartX / mosaicBlockSize) * mosaicBlockSize;
+    const snappedStartY = Math.floor(censorStartY / mosaicBlockSize) * mosaicBlockSize;
+    const widthToGet = censorEndX - snappedStartX, heightToGet = censorEndY - snappedStartY;
+    if(widthToGet > 0 && heightToGet > 0){
+      const imageData = baseCtx.getImageData(snappedStartX, snappedStartY, widthToGet, heightToGet);
+      applyMosaic(imageData, mosaicBlockSize);
+      baseCtx.putImageData(imageData, snappedStartX, snappedStartY);
+    }
+    lastX = currentX; lastY = currentY;
+    copyBaseToDisplay();
+  }
+});
+
+displayCanvas.addEventListener('mouseenter', () => { mouseOverCanvas = true; });
+displayCanvas.addEventListener('mouseout', () => {
+  mouseOverCanvas = false;
+  currentMouseX = -1; currentMouseY = -1;
+  if(currentImageIndex === -1) return;
+  if(draggingToCensor){
+    draggingToCensor = false;
+    processedImages[currentImageIndex].currentDataURL = baseCanvas.toDataURL();
+    setStatus('Censoring by drag saved!', 'ok');
+  }
+  copyBaseToDisplay();
+});
+
+// --- Touch ---
+displayCanvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if(currentImageIndex === -1){ setStatus('Please upload an image first!', 'error'); return; }
+  if(e.touches.length !== 1) return;
+  const coords = getEventCoordinates(e);
+  draggingToCensor = true;
+  lastX = coords.x; lastY = coords.y;
+  applyPermanentMosaic(lastX, lastY);
+}, { passive: false });
+
+displayCanvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if(currentImageIndex === -1 || !draggingToCensor) return;
+  if(e.touches.length !== 1) return;
+  const coords = getEventCoordinates(e);
+  const currentX = coords.x, currentY = coords.y;
+  const mosaicBlockSize = currentMosaicBlockSize;
+  const minX = Math.min(lastX, currentX) - censorAreaWidth / 2;
+  const minY = Math.min(lastY, currentY) - censorAreaHeight / 2;
+  const maxX = Math.max(lastX, currentX) + censorAreaWidth / 2;
+  const maxY = Math.max(lastY, currentY) + censorAreaHeight / 2;
+  const censorStartX = Math.max(0, minX), censorStartY = Math.max(0, minY);
+  const censorEndX = Math.min(displayCanvas.width, maxX), censorEndY = Math.min(displayCanvas.height, maxY);
+  const snappedStartX = Math.floor(censorStartX / mosaicBlockSize) * mosaicBlockSize;
+  const snappedStartY = Math.floor(censorStartY / mosaicBlockSize) * mosaicBlockSize;
+  const widthToGet = censorEndX - snappedStartX, heightToGet = censorEndY - snappedStartY;
+  if(widthToGet > 0 && heightToGet > 0){
+    const imageData = baseCtx.getImageData(snappedStartX, snappedStartY, widthToGet, heightToGet);
+    applyMosaic(imageData, mosaicBlockSize);
+    baseCtx.putImageData(imageData, snappedStartX, snappedStartY);
+  }
+  lastX = currentX; lastY = currentY;
+  copyBaseToDisplay();
+}, { passive: false });
+
+displayCanvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  if(currentImageIndex === -1) return;
+  if(draggingToCensor){
+    draggingToCensor = false;
+    processedImages[currentImageIndex].currentDataURL = baseCanvas.toDataURL();
+    setStatus('Mosaic applied! (staying on current frame)', 'ok');
+  }
+  copyBaseToDisplay();
+});
+
+displayCanvas.addEventListener('touchcancel', e => {
+  e.preventDefault();
+  if(draggingToCensor){
+    draggingToCensor = false;
+    processedImages[currentImageIndex].currentDataURL = baseCanvas.toDataURL();
+    setStatus('Touch interrupted — changes saved!', '');
+  }
+  copyBaseToDisplay();
+});
+
+// --- Downloads ---
+downloadCurrentBtn.addEventListener('click', () => {
+  if(currentImageIndex === -1 || !processedImages[currentImageIndex]){ setStatus('No image to download!', 'error'); return; }
+  const imgData = processedImages[currentImageIndex];
+  const link = document.createElement('a');
+  link.href = imgData.currentDataURL;
+  link.download = `image_${currentImageIndex + 1}.png`;
+  document.body.appendChild(link); link.click(); link.remove();
+  setStatus('Current image download started.', 'ok');
+});
+
+downloadZipBtn.addEventListener('click', async () => {
+  if(processedImages.length === 0){ setStatus('No images to download!', 'error'); return; }
+  setStatus('Zipping images... please wait.', '');
+  const zip = new JSZip();
+
+  function dataURLtoBlob(dataurl){
+    const arr = dataurl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    if(!mimeMatch) return null;
+    const mime = mimeMatch[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while(n--) u8arr[n] = bstr.charCodeAt(n);
+    return new Blob([u8arr], { type: mime });
+  }
+
+  processedImages.forEach((imgData, index) => {
+    const blob = dataURLtoBlob(imgData.currentDataURL);
+    if(blob) zip.file(`image_${index + 1}.png`, blob);
+  });
+
+  try{
+    const content = await zip.generateAsync({ type: 'blob' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(content);
+    link.download = 'censored_images.zip';
+    document.body.appendChild(link); link.click(); link.remove();
+    setStatus('ZIP file created and download started.', 'ok');
+  } catch(error){ setStatus('Error creating ZIP file.', 'error'); console.error(error); }
+});
+
+renderCurrentImage();
+</script>
+</body>
+</html>
