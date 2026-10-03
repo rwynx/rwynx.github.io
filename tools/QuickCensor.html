@@ -68,15 +68,17 @@
 
   .image-actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 
-  /* ---- stage: dark scrollable box holding both canvases, mirrors the look of the other tools'
-     preview panels but stays overflow:auto + unconstrained-aspect since images here can be any size
-     and zoomed well past 100% (the original tool's whole reason for a zoom slider). ---- */
+  /* ---- stage: dark scrollable box holding both canvases. matches the other tools' empty-state
+     footprint exactly (square, max 768px) so the page doesn't look lopsided before an upload; once
+     an image lands, .has-image drops the fixed aspect ratio so arbitrary image sizes + zoom-beyond-
+     100% (the whole reason for the zoom slider) can scroll freely instead of being squeezed square. ---- */
   .censor-stage{
-    position:relative; width:100%; min-height:320px; max-height:72vh;
+    position:relative; width:100%; max-width:768px; aspect-ratio:1/1; margin:0 auto;
     border-radius:20px; background:var(--card-bg); border:1px solid var(--card-border);
     overflow:auto; display:flex; align-items:center; justify-content:center;
     transition:border-color .3s ease, background .3s ease;
   }
+  .censor-stage.has-image{ aspect-ratio:auto; max-width:none; max-height:72vh; }
   .censor-stage.drag-over{ border-color:var(--purple); background:rgba(155,109,255,.08); }
   .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; pointer-events:none; }
   .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
@@ -173,6 +175,7 @@
         <div><b>Hover:</b> preview the area before applying (desktop)</div>
       </div>
     </div>
+    <p style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-dim); opacity:.5; text-align:center; margin-top:2px;">copied from a Quick Censor tool, updated it to a better state</p>
   </div>
 
   <div class="tools-right-col">
@@ -272,6 +275,7 @@ function renderCurrentImage(){
 
   if(currentImageIndex !== -1 && processedImages[currentImageIndex]){
     dropHint.style.display = 'none';
+    dropZone.classList.add('has-image');
     const imageData = processedImages[currentImageIndex].currentDataURL;
 
     const img = new Image();
@@ -354,6 +358,7 @@ function renderCurrentImage(){
     mosaicBlockSizeDisplay.textContent = 4;
     setStatus('Upload images to begin. Click to mosaic a spot, drag to cover an area — all in your browser.', '');
     dropHint.style.display = 'block';
+    dropZone.classList.remove('has-image');
     imageActions.style.display = 'none';
     frameGroup.style.display = 'none';
   }
