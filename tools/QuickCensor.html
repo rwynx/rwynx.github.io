@@ -80,9 +80,12 @@
   }
   .censor-stage.has-image{ aspect-ratio:auto; max-width:none; max-height:72vh; }
   .censor-stage.drag-over{ border-color:var(--purple); background:rgba(155,109,255,.08); }
-  .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; pointer-events:none; }
+  .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; pointer-events:none; cursor:pointer; }
   .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
-  #displayCanvas{ display:block; border-radius:14px; flex-shrink:0; }
+  /* hidden until an image is actually loaded -- canvases default to a 300x150 box otherwise, which
+     used to sit next to the drop hint in the flex row and squeeze/skew it even with nothing on it */
+  #displayCanvas{ display:none; border-radius:14px; flex-shrink:0; max-width:100%; }
+  .censor-stage.has-image #displayCanvas{ display:block; }
   #baseCanvas{ display:none; }
 
   .frame-row{ display:flex; align-items:center; gap:10px; }
@@ -130,9 +133,9 @@
     <div class="field-group">
       <div class="field-head"><label>Upload</label></div>
       <div class="preset-grid">
-        <button class="preset-btn" id="uploadImageBtn">Image(s)</button>
-        <button class="preset-btn" id="uploadGifBtn">GIF</button>
-        <button class="preset-btn" id="uploadZipBtn">ZIP</button>
+        <button type="button" class="preset-btn" id="uploadImageBtn">Image(s)</button>
+        <button type="button" class="preset-btn" id="uploadGifBtn">GIF</button>
+        <button type="button" class="preset-btn" id="uploadZipBtn">ZIP</button>
       </div>
     </div>
 
@@ -140,8 +143,8 @@
       <div class="field-head"><label>Frame</label><span class="frame-count"><span id="currentImageIndexDisplay">0</span> / <span id="totalImagesDisplay">0</span></span></div>
       <input type="range" id="imageSlider" min="0" value="0" disabled>
       <div class="frame-row" style="margin-top:10px; justify-content:center;">
-        <button class="preset-btn" id="prevImageBtn" disabled>← Previous</button>
-        <button class="preset-btn" id="nextImageBtn" disabled>Next →</button>
+        <button type="button" class="preset-btn" id="prevImageBtn" disabled>← Previous</button>
+        <button type="button" class="preset-btn" id="nextImageBtn" disabled>Next →</button>
       </div>
     </div>
 
@@ -180,10 +183,10 @@
 
   <div class="tools-right-col">
     <div class="image-actions" id="imageActions" style="display:none;">
-      <button class="btn-primary" id="downloadCurrentBtn">Download Current</button>
-      <button class="btn-primary" id="downloadZipBtn">Download All as ZIP</button>
-      <button class="icon-btn" id="undoBtn" title="Revert current image to original">↶</button>
-      <button class="icon-btn" id="clearBtn" title="Clear everything">🗑️</button>
+      <button type="button" class="btn-primary" id="downloadCurrentBtn">Download Current</button>
+      <button type="button" class="btn-primary" id="downloadZipBtn">Download All as ZIP</button>
+      <button type="button" class="icon-btn" id="undoBtn" title="Revert current image to original">↶</button>
+      <button type="button" class="icon-btn" id="clearBtn" title="Clear everything">🗑️</button>
     </div>
     <div class="censor-stage" id="dropZone">
       <div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Drag &amp; drop, paste, or use the upload buttons on the left<br>Images, a GIF, or a ZIP are all fine</div>
@@ -203,6 +206,13 @@
 // left as free-to-reuse (the source said so itself). Restyled to match the rest of the site and
 // wired into the Tools page; the censoring logic (mosaic math, drag/hover preview, GIF/ZIP batch
 // handling) is carried over close to as-is since it already worked.
+
+// surface runtime errors instead of failing silently, so a broken upload shows *why* instead of
+// just doing nothing
+window.addEventListener('error', e => {
+  const el = document.getElementById('statusMsg');
+  if(el) { el.textContent = 'Something broke: ' + (e.message || 'unknown error') + ' (check console for details)'; el.className = 'status-msg error'; }
+});
 
 const dropZone = document.getElementById('dropZone');
 const dropHint = document.getElementById('dropHint');
@@ -441,6 +451,9 @@ dropZone.addEventListener('drop', e => {
     const files = e.dataTransfer.files;
     if(files.length > 0) handleDroppedFiles(files);
   }
+});
+dropZone.addEventListener('click', () => {
+  if(currentImageIndex === -1) imageUploadInput.click();
 });
 
 function handleDroppedFiles(files){
