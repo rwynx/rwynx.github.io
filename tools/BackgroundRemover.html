@@ -364,7 +364,7 @@ async function handleFile(file){
     } else if(msg.type === 'error'){
       w.removeEventListener('message', onMessage);
       setProcessing(false);
-      setStatus('Something went wrong removing the background (' + msg.message + '). Try a smaller image or a different browser. If the issue continues, let me know via <a href="https://rwyn.ch/index.html#contact" target="_blank" style="color:var(--blue);">Contact</a>.', 'error');
+      setStatus('Something went wrong removing the background (' + msg.message + '). Try a smaller image or a different browser. If the issue continues, let me know via <a href="https://rwyn.app/index.html#contact" target="_blank" style="color:var(--blue);">Contact</a>.', 'error');
     }
   };
   w.addEventListener('message', onMessage);
