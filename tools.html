@@ -127,7 +127,7 @@
   }
 
   /* cut top-right corner instead of a plain rectangle — gives the cards a "tech panel" feel that
-     fits the binary-rain/neon theme. box-shadow (inset) still traces the cut edge correctly since
+     box-shadow (inset) still traces the cut edge correctly since
      clip-path masks everything, including shadows, as a final compositing step */
   .tool-card{
     position:relative; min-height:280px; padding:32px 28px;
@@ -151,8 +151,6 @@
   .tool-card:hover::before{ border-color:transparent rgba(155,109,255,.55) transparent transparent; }
   .tool-card.wip:hover::before{ border-color:transparent rgba(155,109,255,.25) transparent transparent; }
 
-  /* spotlight that follows the cursor — position set via --mx/--my in JS. inherits the card's
-     clip-path automatically since pseudo-elements are clipped along with their parent box */
   .tool-card::after{
     content:''; position:absolute; inset:0; pointer-events:none; opacity:0;
     background:radial-gradient(260px circle at var(--mx,50%) var(--my,50%), rgba(155,109,255,.16), transparent 70%);
@@ -161,8 +159,6 @@
   .tool-card:hover::after{ opacity:1; }
   .tool-card.wip:hover::after{ opacity:0; }
 
-  /* left-to-right "pop in" reveal, triggered once by IntersectionObserver on the grid.
-     html.js hides cards up front; without JS (or if it fails) they just show up normal. */
   html.js .tools-landing-grid .tool-card{
     opacity:0; transform:scale(.85) translateY(18px);
     transition:opacity .55s cubic-bezier(.34,1.56,.64,1), transform .55s cubic-bezier(.34,1.56,.64,1);
@@ -212,7 +208,6 @@
 
 <div class="tools-landing-wrap">
   <div class="tools-landing-grid" id="toolsGrid">
-    <!-- icon path placeholders — drop matching pngs into assets/img/resources and they'll pick up automatically, emoji fallback until then -->
     <a class="tool-card" href="tools/ImageConverter.html">
       <img src="assets/img/resources/image-converter.png" alt="" class="tool-icon-img" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'tool-icon',textContent:'🔄'}))">
       <span class="tool-tag">live</span>
@@ -268,7 +263,7 @@
 <script>
 // left-to-right "pop" reveal (nth-child transition-delay in CSS does the actual staggering —
 // this just flips the one class once the grid scrolls into view) + a cursor-tracking spotlight
-// per card. No animation library needed for either.
+// per card. No animation library needed for either, but i might nuke it soon
 (function(){
   const grid = document.getElementById('toolsGrid');
   if(!grid) return;
