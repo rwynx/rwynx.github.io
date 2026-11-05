@@ -175,13 +175,14 @@
   .recent-pills a:hover{ background:rgba(155,109,255,.18); border-color:var(--purple); animation:pillBounce .45s cubic-bezier(.34,1.56,.64,1); }
 
   .featured{
-    position:relative; display:flex; flex-direction:column; justify-content:space-between;
+    position:relative; display:block;
     padding:20px 22px; border-radius:16px; text-decoration:none; color:var(--text);
     background:var(--card-bg); border:1px solid rgba(155,109,255,.45);
     box-shadow:0 0 60px -20px rgba(155,109,255,.55);
-    backface-visibility:hidden; -webkit-backface-visibility:hidden;
-    transform:translateZ(0);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    transition:transform .4s cubic-bezier(.16,1,.3,1), box-shadow .4s ease, border-color .4s ease;
   }
+  .featured:hover{ transform:translateY(-4px); border-color:var(--purple); box-shadow:0 24px 60px -24px rgba(155,109,255,.7); }
   .featured .f-head{ display:flex; align-items:center; gap:14px; margin-bottom:12px; height:48px; flex-shrink:0; }
   .featured .f-icon{
     width:44px; height:44px; min-width:44px; min-height:44px;
@@ -189,89 +190,74 @@
     transform:translateZ(0); image-rendering:-webkit-optimize-contrast;
   }
   .featured .f-name{ font-size:20px; font-weight:600; line-height:1.2; margin-top:3px; }
-  .featured .f-desc{ font-size:13px; color:var(--text-dim); line-height:1.6; margin-bottom:12px; flex-grow:1; }
+  .featured .f-desc{ font-size:13px; color:var(--text-dim); line-height:1.6; margin-bottom:12px; }
+  .featured .f-foot{ display:flex; align-items:center; justify-content:space-between; }
   .featured .f-link{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--blue); }
 
-  /* Stacked card deck (matching user's drawing: back card offset top-left, front card bottom-right) */
+  /* Stacked card deck (Ghost Frame + 100% original translucent glassmorphism) */
   .featured-deck{
     position:relative;
+    margin:18px 0 28px 16px;
+  }
+
+  /* Ghost card: the clean, semi-transparent frosted frame sitting in the back (top-left) */
+  .featured-deck .deck-ghost{
+    position:absolute;
+    inset:0;
+    transform:translate(-14px, -12px);
+    border-radius:16px;
+    background:rgba(20, 15, 40, 0.45);
+    backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);
+    border:1px solid rgba(155, 109, 255, 0.3);
+    box-shadow:0 0 30px -12px rgba(155, 109, 255, 0.35);
+    pointer-events:none;
+    z-index:1;
+    transition:transform .4s cubic-bezier(.16,1,.3,1), border-color .4s ease, box-shadow .4s ease;
+  }
+  .featured-deck:hover .deck-ghost{
+    transform:translate(-17px, -15px);
+    border-color:rgba(155, 109, 255, 0.5);
+    box-shadow:0 0 45px -10px rgba(155, 109, 255, 0.5);
+  }
+
+  /* Front card: translucent frosted glass with smooth content switching */
+  .featured-deck .featured{
+    position:relative;
+    z-index:2;
+    min-height:190px;
+    margin-bottom:0;
+    overflow:hidden;
+  }
+  .featured-deck .featured:hover{
+    transform:translate(2px, -3px);
+  }
+
+  /* Slide tracks inside front card: perfectly cross-fade without ghosts */
+  .featured-deck .f-track{
+    position:relative;
+    min-height:148px;
     display:grid;
     grid-template-columns:1fr;
     grid-template-rows:1fr;
-    margin:18px 0 28px 16px;
-    perspective:1000px;
   }
-  .featured-deck .featured{
+  .featured-deck .f-slide{
     grid-area:1 / 1 / 2 / 2;
-    margin-bottom:0;
-    min-height:190px;
-    /* Solid opaque dark backdrop to completely hide the card underneath */
-    background:rgba(12, 8, 24, 0.96);
-    backdrop-filter:blur(16px);
-    -webkit-backdrop-filter:blur(16px);
-    will-change:transform, opacity, box-shadow;
-    transition:transform .65s cubic-bezier(.16,1,.3,1),
-               opacity .65s cubic-bezier(.16,1,.3,1),
-               border-color .4s ease,
-               box-shadow .4s ease,
-               filter .4s ease;
-  }
-
-  /* FRONT CARD (Active, bottom-right) — content fully visible and interactive */
-  .featured-deck .featured.is-front{
-    z-index:3;
-    opacity:1;
-    pointer-events:auto;
-    cursor:pointer;
-    transform:translate3d(0, 0, 10px);
-    border-color:rgba(155,109,255,.55);
-    box-shadow:0 0 50px -15px rgba(155,109,255,.55);
-    filter:none;
-  }
-  .featured-deck .featured.is-front:hover{
-    transform:translate3d(2px, -3px, 15px);
-    border-color:var(--purple);
-    box-shadow:0 24px 60px -24px rgba(155,109,255,.75);
-  }
-  .featured-deck .featured.is-front .f-head,
-  .featured-deck .featured.is-front .f-desc,
-  .featured-deck .featured.is-front .f-foot{
-    opacity:1;
-    transition:opacity .4s ease .12s;
-  }
-
-  /* BACK CARD (Top-left offset like the drawing) — content hidden so only clean deck frame shows */
-  .featured-deck .featured.is-back{
-    z-index:1;
-    opacity:.7;
-    pointer-events:auto;
-    cursor:pointer;
-    overflow:hidden;
-    transform:translate3d(-16px, -14px, 0);
-    border-color:rgba(155,109,255,.3);
-    box-shadow:0 0 25px -10px rgba(155,109,255,.25);
-    filter:brightness(.85);
-  }
-  .featured-deck .featured.is-back:hover{
-    opacity:.9;
-    filter:brightness(1);
-    transform:translate3d(-18px, -16px, 0);
-    border-color:rgba(155,109,255,.55);
-  }
-  .featured-deck .featured.is-back .f-head,
-  .featured-deck .featured.is-back .f-desc,
-  .featured-deck .featured.is-back .f-foot{
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
     opacity:0;
+    visibility:hidden;
     pointer-events:none;
-    transition:opacity .25s ease;
+    transform:translateY(6px);
+    transition:opacity .45s cubic-bezier(.16,1,.3,1), transform .45s cubic-bezier(.16,1,.3,1), visibility .45s step-end;
   }
-
-  /* Swapping animation: front card lifts and glides slightly, back card steps forward */
-  .featured-deck .featured.is-lifting{
-    z-index:5;
-    opacity:.85;
-    transform:translate3d(28px, 14px, 20px);
-    transition:transform .32s cubic-bezier(.2,.8,.4,1), opacity .32s ease;
+  .featured-deck .f-slide.is-active{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+    transform:translateY(0);
+    transition:opacity .45s cubic-bezier(.16,1,.3,1), transform .45s cubic-bezier(.16,1,.3,1), visibility 0s step-start;
   }
 
   /* Compact indicator dots */
@@ -309,8 +295,8 @@
 
   @media(max-width:600px){
     .featured-deck{ margin-left:10px; margin-top:12px; }
-    .featured-deck .featured.is-back{ transform:translate3d(-10px, -10px, 0); }
-    .featured-deck .featured.is-lifting{ transform:translate3d(16px, 10px, 15px); }
+    .featured-deck .deck-ghost{ transform:translate(-9px, -8px); }
+    .featured-deck:hover .deck-ghost{ transform:translate(-11px, -10px); }
   }
   }
   .f-dot:hover{
@@ -446,38 +432,45 @@
     <h2 class="section-title">recent <span style="opacity:.5; text-transform:none; letter-spacing:0;">— recent stuff</span></h2>
 
     <div class="featured-deck" id="featuredDeck">
-      <a class="featured is-front" href="https://baker.rwyn.app" target="_blank" rel="noopener" data-deck-index="0">
-        <div class="f-head">
-          <img class="f-icon" src="https://baker.rwyn.app/rwxbaker-assets/ui/rwx-logo.png" alt="" width="44" height="44" onerror="this.style.display='none'">
-          <div>
-            <span class="f-tag">featured</span>
-            <div class="f-name">RWX Baker</div>
+      <div class="deck-ghost" aria-hidden="true"></div>
+      <a class="featured" id="deckCard" href="https://baker.rwyn.app" target="_blank" rel="noopener">
+        <div class="f-track" id="deckTrack">
+          <!-- Slide 0: RWX Baker -->
+          <div class="f-slide is-active" data-href="https://baker.rwyn.app">
+            <div class="f-head">
+              <img class="f-icon" src="https://baker.rwyn.app/rwxbaker-assets/ui/rwx-logo.png" alt="" width="44" height="44" onerror="this.style.display='none'">
+              <div>
+                <span class="f-tag">featured</span>
+                <div class="f-name">RWX Baker</div>
+              </div>
+            </div>
+            <div class="f-desc">Arknights: Endfield message generator. A pixel-faithful, in-browser recreation of the in-game Baker app. Make dialogues, export as PNG. Free, no trackers.</div>
+            <div class="f-foot">
+              <span class="f-link">baker.rwyn.app ↗</span>
+            </div>
+          </div>
+
+          <!-- Slide 1: RWX Chimera -->
+          <div class="f-slide" data-href="https://rwyn.app/RWX-Chimera/">
+            <div class="f-head">
+              <img class="f-icon" src="assets/img/resources/rwx_chimera_icon.png" alt="" width="44" height="44" onerror="this.src='https://rwyn.app/RWX-Chimera/assets/icons/rwx_chimera_icon.png'">
+              <div>
+                <span class="f-tag">new</span>
+                <div class="f-name">RWX Chimera</div>
+              </div>
+            </div>
+            <div class="f-desc">High-entropy password generator &amp; forge. Turn a catchphrase you'll actually remember into a 40–60 char hybrid password, then test it offline. Runs in your browser, or grab the .exe. Free, no trackers.</div>
+            <div class="f-foot">
+              <span class="f-link">rwyn.app/RWX-Chimera ↗</span>
+            </div>
           </div>
         </div>
-        <div class="f-desc">Arknights: Endfield message generator. A pixel-faithful, in-browser recreation of the in-game Baker app. Make dialogues, export as PNG. Free, no trackers.</div>
-        <div class="f-foot">
-          <span class="f-link">baker.rwyn.app ↗</span>
+
+        <div class="featured-dots" id="featuredDots" aria-label="Featured slides navigation">
+          <button type="button" class="f-dot is-active" data-slide="0" aria-label="Slide 1: RWX Baker" title="RWX Baker"></button>
+          <button type="button" class="f-dot" data-slide="1" aria-label="Slide 2: RWX Chimera" title="RWX Chimera"></button>
         </div>
       </a>
-
-      <a class="featured is-back" href="https://rwyn.app/RWX-Chimera/" target="_blank" rel="noopener" data-deck-index="1">
-        <div class="f-head">
-          <img class="f-icon" src="assets/img/resources/rwx_chimera_icon.png" alt="" width="44" height="44" onerror="this.src='https://rwyn.app/RWX-Chimera/assets/icons/rwx_chimera_icon.png'">
-          <div>
-            <span class="f-tag">new</span>
-            <div class="f-name">RWX Chimera</div>
-          </div>
-        </div>
-        <div class="f-desc">High-entropy password generator &amp; forge. Turn a catchphrase you'll actually remember into a 40–60 char hybrid password, then test it offline. Runs in your browser, or grab the .exe. Free, no trackers.</div>
-        <div class="f-foot">
-          <span class="f-link">rwyn.app/RWX-Chimera ↗</span>
-        </div>
-      </a>
-
-      <div class="featured-dots" id="featuredDots" aria-label="Featured slides navigation">
-        <button type="button" class="f-dot is-active" data-slide="0" aria-label="Slide 1: RWX Baker" title="RWX Baker"></button>
-        <button type="button" class="f-dot" data-slide="1" aria-label="Slide 2: RWX Chimera" title="RWX Chimera"></button>
-      </div>
     </div>
 
     <div class="recent-title">New tools:</div>
@@ -645,60 +638,44 @@ const SLIDE_SECONDS = 2;
   panel.addEventListener('mouseleave', ()=> lightboxOverlay.classList.remove('open'));
 })();
 
-// ---------- stacked featured cards (Baker <-> Chimera deck) ----------
-// Overlapping card deck matching the user's drawing: front card active, back card offset top-left.
-// Swaps smoothly every 3s without layout shifts or icon jitter; hover/focus pauses; clicking back card brings it to front.
+// ---------- stacked featured cards (Ghost deck + smooth slide switcher) ----------
+// Keeps 100% translucent glassmorphism with an offset frosted ghost frame in the background.
+// Switches smoothly between Baker and Chimera every 3s without layout shifts, ghost text or icon jitter.
 (function initFeaturedDeck(){
   const deck = document.getElementById('featuredDeck');
   if(!deck) return;
-  const cards = Array.from(deck.querySelectorAll('.featured'));
+  const card = document.getElementById('deckCard');
+  const slides = Array.from(deck.querySelectorAll('.f-slide'));
   const dots = Array.from(deck.querySelectorAll('.f-dot'));
-  if(cards.length < 2) return;
+  if(!card || slides.length < 2) return;
 
   const SWAP_MS = 3000;
   let activeIndex = 0;
   let timer = null;
-  let isSwapping = false;
+  let isBusy = false;
 
-  function updateDots(idx){
-    dots.forEach((d, i) => d.classList.toggle('is-active', i === idx));
+  function setSlide(nextIndex){
+    if(nextIndex === activeIndex || isBusy) return;
+    isBusy = true;
+
+    const currentSlide = slides[activeIndex];
+    const nextSlide = slides[nextIndex];
+
+    currentSlide.classList.remove('is-active');
+    nextSlide.classList.add('is-active');
+
+    // Update link href to match the active slide
+    const targetHref = nextSlide.getAttribute('data-href');
+    if(targetHref) card.setAttribute('href', targetHref);
+
+    dots.forEach((d, i) => d.classList.toggle('is-active', i === nextIndex));
+
+    activeIndex = nextIndex;
+    setTimeout(() => { isBusy = false; }, 460);
   }
 
-  function swapDeck(targetIndex){
-    if(isSwapping) return;
-    const nextIndex = targetIndex !== undefined ? targetIndex : (activeIndex === 0 ? 1 : 0);
-    if(nextIndex === activeIndex) return;
-
-    isSwapping = true;
-    const frontCard = cards[activeIndex];
-    const backCard = cards[nextIndex];
-
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if(prefersReducedMotion){
-      frontCard.classList.remove('is-front');
-      frontCard.classList.add('is-back');
-      backCard.classList.remove('is-back');
-      backCard.classList.add('is-front');
-      activeIndex = nextIndex;
-      updateDots(activeIndex);
-      isSwapping = false;
-      return;
-    }
-
-    // Step 1: Front card lifts slightly forward/right, back card glides to front
-    frontCard.classList.add('is-lifting');
-    backCard.classList.remove('is-back');
-    backCard.classList.add('is-front');
-
-    // Step 2: Front card drops smoothly into the back slot
-    setTimeout(() => {
-      frontCard.classList.remove('is-front', 'is-lifting');
-      frontCard.classList.add('is-back');
-      activeIndex = nextIndex;
-      updateDots(activeIndex);
-      setTimeout(() => { isSwapping = false; }, 350);
-    }, 320);
+  function nextSlide(){
+    setSlide((activeIndex + 1) % slides.length);
   }
 
   function startTimer(){
@@ -706,7 +683,7 @@ const SLIDE_SECONDS = 2;
     timer = setInterval(() => {
       if(document.hidden) return;
       if(deck.matches(':hover') || deck.querySelector(':focus-visible')) return;
-      swapDeck();
+      nextSlide();
     }, SWAP_MS);
   }
 
@@ -714,24 +691,12 @@ const SLIDE_SECONDS = 2;
     if(timer){ clearInterval(timer); timer = null; }
   }
 
-  // Clicking the back card brings it to front instead of navigating away immediately
-  cards.forEach((card, idx) => {
-    card.addEventListener('click', (e) => {
-      if(card.classList.contains('is-back')){
-        e.preventDefault();
-        e.stopPropagation();
-        swapDeck(idx);
-        startTimer();
-      }
-    });
-  });
-
   dots.forEach(dot => {
     dot.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       const idx = parseInt(dot.getAttribute('data-slide'), 10);
-      swapDeck(idx);
+      setSlide(idx);
       startTimer();
     });
   });
