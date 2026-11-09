@@ -15,7 +15,7 @@
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://rwyn.app/tools/MetadataInspector.html">
-<meta property="og:site_name" content="Rwyn's Blog">
+<meta property="og:site_name" content="Rwyn's Stuff">
 <meta property="og:title" content="NovelAI Metadata Inspector — View & Erase NAI PNG Generation Data">
 <meta property="og:description" content="Inspect and erase NovelAI generation metadata (prompts, negative prompts, character prompts, seed, sampler, steps) directly in your browser. 100% client-side and secure.">
 <meta property="og:image" content="https://rwyn.app/assets/img/logo.png">
@@ -236,6 +236,10 @@
 // NAI stealth-PNG metadata reader + eraser format reverse-engineered from
 // NovelAIs own open-source nai_meta.py if its broken, can be fixed by redoing the 1st step /// keep for now :----------
 
+// what every erased prompt line gets replaced with (base, negative, each character prompt/negative).
+// plain ASCII on purpose — it also goes into PNG tEXt chunks, which are latin-1 only.
+const NOTICE_TEXT = "This image's metadata was removed via rwyn.app/tools/MetadataInspector.html";
+
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 const statusMsg = document.getElementById('statusMsg');
@@ -255,6 +259,7 @@ const newImageBtn = document.getElementById('newImageBtn');
 const workCanvas = document.createElement('canvas');
 const ctx = workCanvas.getContext('2d', {willReadFrequently:true});
 let currentFileBase = 'image';
+let lastParsed = null; // {comment, fields} of the image currently loaded; null if it had no NAI metadata
 
 const NO_CHAR_HTML = '<div class="field-group no-char-box"><div class="no-char">NO CHARACTER FOUND</div></div>';
 
@@ -332,6 +337,114 @@ async function extractStealthPng(imageData, width, height){
     try{ data.Comment = JSON.parse(data.Comment); } catch(e){ /* leave as raw string */ }
   }
   return data;
+}
+
+// ---------- writer side: the exact mirror of extractStealthPng above ----------
+// layout = 'stealth_pngcomp' (15 bytes) + payload length in BITS (4 bytes, big-endian) + gzip(JSON),
+// written MSB-first into the alpha channel's lowest bit, column by column (x outer, y inner).
+// alpha becomes 254|bit, so it stays visually opaque. everything past the payload stays 255.
+async function embedStealth(imageData, width, height, outerObj){
+  if(!window.CompressionStream) throw new Error('this browser lacks CompressionStream (gzip) support');
+  const json = new TextEncoder().encode(JSON.stringify(outerObj));
+  const cs = new CompressionStream('gzip');
+  const gz = new Uint8Array(await new Response(new Blob([json]).stream().pipeThrough(cs)).arrayBuffer());
+
+  const payload = new Uint8Array(15 + 4 + gz.length);
+  payload.set(new TextEncoder().encode('stealth_pngcomp'), 0);
+  const lenBits = gz.length * 8;
+  payload[15] = (lenBits >>> 24) & 255;
+  payload[16] = (lenBits >>> 16) & 255;
+  payload[17] = (lenBits >>> 8) & 255;
+  payload[18] = lenBits & 255;
+  payload.set(gz, 19);
+
+  const totalBits = payload.length * 8;
+  if(totalBits > width*height) throw new Error('image is too small to hold the notice');
+
+  const d = imageData.data;
+  for(let k=0; k<totalBits; k++){
+    const bit = (payload[k >> 3] >> (7 - (k & 7))) & 1;
+    const x = Math.floor(k / height), y = k % height;
+    d[(y*width + x)*4 + 3] = 254 | bit;
+  }
+}
+
+// plain PNG tEXt chunks (what NAI also writes next to the stealth data) so viewers that only read
+// the text chunks show the notice too. needs a crc32 since chunks are checksummed.
+const CRC_TABLE = (()=>{
+  const t = new Uint32Array(256);
+  for(let n=0; n<256; n++){
+    let c = n;
+    for(let k=0; k<8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(bytes){
+  let c = 0xFFFFFFFF;
+  for(let i=0; i<bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 255] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function latin1Bytes(s){ return Uint8Array.from(s, ch => ch.charCodeAt(0) & 255); }
+function makeTextChunk(key, value){
+  const k = latin1Bytes(key), v = latin1Bytes(value);
+  const data = new Uint8Array(k.length + 1 + v.length);
+  data.set(k, 0); data[k.length] = 0; data.set(v, k.length + 1);
+  const type = latin1Bytes('tEXt');
+  const chunk = new Uint8Array(12 + data.length);
+  const dv = new DataView(chunk.buffer);
+  dv.setUint32(0, data.length);
+  chunk.set(type, 4);
+  chunk.set(data, 8);
+  const crcInput = new Uint8Array(4 + data.length);
+  crcInput.set(type, 0); crcInput.set(data, 4);
+  dv.setUint32(8 + data.length, crc32(crcInput));
+  return chunk;
+}
+function insertTextChunks(png, chunks){
+  const dv = new DataView(png.buffer, png.byteOffset, png.byteLength);
+  let off = 8; // skip the PNG signature, then walk chunks until the first IDAT
+  while(off + 8 <= png.length){
+    const len = dv.getUint32(off);
+    const type = String.fromCharCode(png[off+4], png[off+5], png[off+6], png[off+7]);
+    if(type === 'IDAT') break;
+    off += 12 + len;
+  }
+  const extra = chunks.reduce((n,c)=> n + c.length, 0);
+  const out = new Uint8Array(png.length + extra);
+  out.set(png.subarray(0, off), 0);
+  let p = off;
+  chunks.forEach(c=>{ out.set(c, p); p += c.length; });
+  out.set(png.subarray(off), p);
+  return out;
+}
+
+// rebuilds the metadata with the same shape as the original (v4 captions, character slots, legacy prompt/uc)
+// but every prompt line that actually had content now holds NOTICE_TEXT; empty ones stay empty.
+// seed / sampler / steps / scale / model are simply dropped, so nothing about the generation survives.
+function buildNotice(comment, fields){
+  const N = NOTICE_TEXT;
+  const c = {};
+  if(fields.basePrompt) c.prompt = N;
+  if(fields.negPrompt) c.uc = N;
+  if(comment.v4_prompt && comment.v4_prompt.caption){
+    c.v4_prompt = { caption: {
+      base_caption: fields.basePrompt ? N : '',
+      char_captions: fields.characters.map(ch => ({ char_caption: ch.prompt ? N : '' }))
+    }};
+    c.v4_negative_prompt = { caption: {
+      base_caption: fields.negPrompt ? N : '',
+      char_captions: fields.characters.map(ch => ({ char_caption: ch.negative ? N : '' }))
+    }};
+  }
+  const outer = {
+    Title: 'NovelAI generated image',
+    Description: N,
+    Software: 'NovelAI',
+    Comment: JSON.stringify(c)
+  };
+  const textChunks = ['Title','Description','Software','Comment'].map(k => makeTextChunk(k, outer[k]));
+  return {outer, textChunks};
 }
 
 function parsePngTextChunks(buffer){
@@ -450,6 +563,7 @@ function renderFields(fields, comment, outer){
 }
 
 function clearFields(){
+  lastParsed = null;
   basePromptEl.value = '';
   negPromptEl.value = '';
   basePromptGroup.style.display = '';
@@ -519,18 +633,34 @@ async function handleFile(file){
   const comment = outer.Comment;
   const fields = extractFields(comment);
   renderFields(fields, comment, outer);
+  lastParsed = {comment, fields};
   setStatus('I found the metadata.', 'ok');
 }
 
-eraseBtn.addEventListener('click', ()=>{
+// erase = wipe the hidden alpha data + all text chunks (canvas re-encode drops them), then write the notice back:
+// once into the stealth alpha layer, once as plain tEXt chunks. no metadata found -> plain wipe like before.
+eraseBtn.addEventListener('click', async ()=>{
   if(!workCanvas.width) return;
-  const imageData = ctx.getImageData(0, 0, workCanvas.width, workCanvas.height);
-  const d = imageData.data;
-  for(let i=3; i<d.length; i+=4) d[i] = 255;
-  ctx.putImageData(imageData, 0, 0);
+  eraseBtn.disabled = true;
+  try{
+    const w = workCanvas.width, h = workCanvas.height;
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const d = imageData.data;
+    for(let i=3; i<d.length; i+=4) d[i] = 255;
 
-  workCanvas.toBlob(blob=>{
-    const url = URL.createObjectURL(blob);
+    const notice = lastParsed ? buildNotice(lastParsed.comment, lastParsed.fields) : null;
+    let stealthOk = true;
+    if(notice){
+      try{ await embedStealth(imageData, w, h, notice.outer); }
+      catch(e){ stealthOk = false; }
+    }
+    ctx.putImageData(imageData, 0, 0);
+
+    const blob = await new Promise(res => workCanvas.toBlob(res, 'image/png'));
+    let bytes = new Uint8Array(await blob.arrayBuffer());
+    if(notice) bytes = insertTextChunks(bytes, notice.textChunks);
+
+    const url = URL.createObjectURL(new Blob([bytes], {type:'image/png'}));
     const a = document.createElement('a');
     a.href = url;
     a.download = currentFileBase + '_clean.png';
@@ -538,8 +668,15 @@ eraseBtn.addEventListener('click', ()=>{
     a.click();
     a.remove();
     setTimeout(()=> URL.revokeObjectURL(url), 5000);
-    setStatus('Erased and ready to be downloaded.', 'ok');
-  }, 'image/png');
+
+    if(!notice) setStatus('Erased and ready to be downloaded.', 'ok');
+    else if(stealthOk) setStatus('Erased. Every prompt line now holds a notice instead. Ready to be downloaded.', 'ok');
+    else setStatus('Erased, with a text-only notice (this browser couldn\'t write the hidden-pixel one). Ready to be downloaded.', 'ok');
+  }catch(e){
+    setStatus('Something went wrong while erasing: ' + e.message, 'error');
+  }finally{
+    eraseBtn.disabled = false;
+  }
 });
 </script>
 </body>
