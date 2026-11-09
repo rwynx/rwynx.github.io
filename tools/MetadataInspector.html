@@ -113,6 +113,7 @@
   .tools-right img{ max-width:100%; max-height:100%; object-fit:contain; border-radius:14px; display:block; }
   .drop-hint{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; letter-spacing:.03em; line-height:1.8; }
   .drop-hint .big{ font-size:32px; display:block; margin-bottom:10px; opacity:.6; }
+  .drop-hint .sub{ display:block; margin-top:6px; font-size:11.5px; opacity:.6; }
 
   /* action bar sits ABOVE the preview area, left-aligned so it sits over the box's left edge, not right */
   .image-actions{ display:flex; gap:10px; align-items:center; align-self:flex-start; }
@@ -121,6 +122,12 @@
     border-radius:8px; padding:9px 12px; cursor:pointer; transition:color .3s ease, border-color .3s ease, background .3s ease;
   }
   .icon-btn:hover{ color:var(--text); border-color:var(--purple); background:rgba(155,109,255,.12); }
+  .icon-btn:disabled{ opacity:.4; cursor:not-allowed; }
+
+  /* batch row sits under the preview box: zip / several pngs / folder -> one cleaned zip back */
+  .batch-row{ display:flex; gap:10px; flex-wrap:wrap; align-self:flex-start; }
+  .batch-row .icon-btn{ font-family:'JetBrains Mono',monospace; font-size:12.5px; }
+  .batch-hint{ align-self:flex-start; font-size:12px; opacity:.8; }
 
   .panel-title{ font-size:12px; font-family:'JetBrains Mono',monospace; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px; }
   .field-group{ background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:14px 16px; }
@@ -224,12 +231,18 @@
       <button class="icon-btn" id="newImageBtn" title="Upload new image">🖼️</button>
     </div>
     <div class="tools-right" id="dropZone">
-      <div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop a NovelAI PNG here</div>
+      <div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop a NovelAI PNG here<span class="sub">or a .zip / folder to clean a whole batch</span></div>
     </div>
+    <div class="batch-row">
+      <button class="icon-btn" id="batchFilesBtn" title="Pick a .zip or several PNGs">📦 ZIP / multiple PNGs</button>
+      <button class="icon-btn" id="batchFolderBtn" title="Pick a folder">📁 Folder</button>
+    </div>
+    <p class="status-msg batch-hint">Lots of images? Drop a .zip, a folder or several PNGs and you get one cleaned .zip back.</p>
   </div>
 </div>
 
-<input type="file" id="fileInput" accept="image/png" style="display:none;">
+<input type="file" id="fileInput" accept="image/png,.png,.zip,application/zip" multiple style="display:none;">
+<input type="file" id="folderInput" webkitdirectory multiple style="display:none;">
 
 <script src="../assets/js/site.js"></script>
 <script>
@@ -242,6 +255,9 @@ const NOTICE_TEXT = "This image's metadata was removed via rwyn.app/tools/Metada
 
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
+const folderInput = document.getElementById('folderInput');
+const batchFilesBtn = document.getElementById('batchFilesBtn');
+const batchFolderBtn = document.getElementById('batchFolderBtn');
 const statusMsg = document.getElementById('statusMsg');
 const notesMsg = document.getElementById('notesMsg');
 const basePromptGroup = document.getElementById('basePromptGroup');
@@ -259,20 +275,76 @@ const newImageBtn = document.getElementById('newImageBtn');
 const workCanvas = document.createElement('canvas');
 const ctx = workCanvas.getContext('2d', {willReadFrequently:true});
 let currentFileBase = 'image';
-let lastParsed = null; // {comment, fields} of the image currently loaded; null if it had no NAI metadata
+let lastOuter = null;   // full parsed metadata of the image currently loaded; null if it had no NAI metadata
+let batchBusy = false;
 
 const NO_CHAR_HTML = '<div class="field-group no-char-box"><div class="no-char">NO CHARACTER FOUND</div></div>';
+const DROP_HINT_HTML = '<div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop a NovelAI PNG here<span class="sub">or a .zip / folder to clean a whole batch</span></div>';
 
+// ---------- input routing: one png = the inspector as before, anything else (zip / folder / several) = batch ----------
 dropZone.addEventListener('click', ()=> fileInput.click());
 dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
 dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e=>{
+dropZone.addEventListener('drop', async e=>{
   e.preventDefault(); dropZone.classList.remove('drag-over');
-  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  const list = await filesFromDrop(e.dataTransfer); // must start synchronously: the drop's item list dies after the handler returns
+  if(list.length) routeFiles(list);
 });
-fileInput.addEventListener('change', ()=>{ if(fileInput.files[0]) handleFile(fileInput.files[0]); });
 newImageBtn.addEventListener('click', ()=> fileInput.click());
+batchFilesBtn.addEventListener('click', ()=> fileInput.click());
+batchFolderBtn.addEventListener('click', ()=> folderInput.click());
 clearBtn.addEventListener('click', clearImage);
+
+function listFromInput(input){
+  const list = Array.from(input.files).map(f => ({file:f, path: f.webkitRelativePath || f.name}));
+  input.value = ''; // so picking the same thing twice still fires "change"
+  return list;
+}
+fileInput.addEventListener('change', ()=>{ if(fileInput.files.length) routeFiles(listFromInput(fileInput)); });
+folderInput.addEventListener('change', ()=>{ if(folderInput.files.length) routeFiles(listFromInput(folderInput)); });
+
+function readAllEntries(reader){
+  return new Promise((resolve, reject)=>{
+    const all = [];
+    (function pump(){
+      reader.readEntries(batch=>{
+        if(!batch.length) return resolve(all);
+        all.push(...batch); pump();
+      }, reject);
+    })();
+  });
+}
+async function walkEntry(entry, out){
+  if(entry.isFile){
+    const file = await new Promise((res, rej)=> entry.file(res, rej));
+    out.push({file, path: entry.fullPath.replace(/^\//, '')});
+  } else if(entry.isDirectory){
+    const kids = await readAllEntries(entry.createReader());
+    for(const k of kids) await walkEntry(k, out);
+  }
+}
+async function filesFromDrop(dt){
+  const out = [];
+  const entries = Array.from(dt.items || [])
+    .filter(it => it.kind === 'file')
+    .map(it => it.webkitGetAsEntry && it.webkitGetAsEntry())
+    .filter(Boolean);
+  if(entries.length){
+    for(const e of entries) await walkEntry(e, out);
+  } else {
+    Array.from(dt.files).forEach(f => out.push({file:f, path:f.name}));
+  }
+  return out;
+}
+
+function routeFiles(list){
+  if(batchBusy) return;
+  const pngs = list.filter(x => /\.png$/i.test(x.file.name));
+  const zips = list.filter(x => /\.zip$/i.test(x.file.name));
+  if(list.length === 1 && pngs.length === 1){ handleFile(pngs[0].file); return; }
+  if(!pngs.length && !zips.length){ setStatus('Drop PNGs, a .zip or a folder with PNGs in it.', 'error'); return; }
+  handleBatch(list);
+}
 
 document.querySelectorAll('.copy-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -419,31 +491,36 @@ function insertTextChunks(png, chunks){
   return out;
 }
 
-// rebuilds the metadata with the same shape as the original (v4 captions, character slots, legacy prompt/uc)
-// but every prompt line that actually had content now holds NOTICE_TEXT; empty ones stay empty.
-// seed / sampler / steps / scale / model are simply dropped, so nothing about the generation survives.
-function buildNotice(comment, fields){
-  const N = NOTICE_TEXT;
-  const c = {};
-  if(fields.basePrompt) c.prompt = N;
-  if(fields.negPrompt) c.uc = N;
-  if(comment.v4_prompt && comment.v4_prompt.caption){
-    c.v4_prompt = { caption: {
-      base_caption: fields.basePrompt ? N : '',
-      char_captions: fields.characters.map(ch => ({ char_caption: ch.prompt ? N : '' }))
-    }};
-    c.v4_negative_prompt = { caption: {
-      base_caption: fields.negPrompt ? N : '',
-      char_captions: fields.characters.map(ch => ({ char_caption: ch.negative ? N : '' }))
-    }};
+// NovelAI's own importer wants the metadata to look like a complete, real NAI one — a stripped-down JSON made it
+// show no import button. so instead of building a minimal object, this clones the ORIGINAL metadata (Title, Software,
+// Source, Generation time, every setting, the v4 caption structure incl. character slots) and only swaps the prompt
+// text for NOTICE_TEXT. empty prompt fields stay empty. settings like seed/sampler/steps are kept as they were.
+const PROMPT_KEYS = new Set(['prompt', 'uc', 'base_caption', 'char_caption']);
+function scrubPrompts(node){
+  if(Array.isArray(node)){ node.forEach(scrubPrompts); return node; }
+  if(node && typeof node === 'object'){
+    Object.keys(node).forEach(k=>{
+      const v = node[k];
+      if(PROMPT_KEYS.has(k) && typeof v === 'string'){ if(v) node[k] = NOTICE_TEXT; }
+      else scrubPrompts(v);
+    });
   }
-  const outer = {
-    Title: 'NovelAI generated image',
-    Description: N,
-    Software: 'NovelAI',
-    Comment: JSON.stringify(c)
-  };
-  const textChunks = ['Title','Description','Software','Comment'].map(k => makeTextChunk(k, outer[k]));
+  return node;
+}
+// tEXt is latin-1, so anything beyond that gets \uXXXX-escaped inside the JSON (still valid JSON)
+function asciiJson(obj){
+  return JSON.stringify(obj).replace(/[\u0080-\uffff]/g, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
+}
+function buildNotice(origOuter){
+  const comment = scrubPrompts(JSON.parse(JSON.stringify(origOuter.Comment)));
+  const outer = {};
+  Object.keys(origOuter).forEach(k=>{
+    if(k === 'Comment') return;
+    const v = origOuter[k];
+    outer[k] = (k === 'Description') ? NOTICE_TEXT : (typeof v === 'string' ? v : String(v));
+  });
+  outer.Comment = asciiJson(comment); // last, like in real NAI files
+  const textChunks = Object.keys(outer).map(k => makeTextChunk(k, outer[k].replace(/[^\x00-\xff]/g, '?')));
   return {outer, textChunks};
 }
 
@@ -467,6 +544,230 @@ function parsePngTextChunks(buffer){
     if(type === 'IEND') break;
   }
   return out;
+}
+
+// finds the NAI metadata of a png: stealth alpha layer first, plain tEXt chunks as the fallback.
+// returns the whole outer object (Title/Software/Source/.../Comment as an object) or null if it isn't a NAI image.
+async function readOuter(arrayBuffer, imageData, width, height){
+  let outer = null;
+  try{ outer = await extractStealthPng(imageData, width, height); }
+  catch(e){ /* fall through to the plain-chunk fallback below */ }
+
+  if(!outer){
+    try{
+      const texts = parsePngTextChunks(arrayBuffer);
+      if(texts.Comment) outer = Object.assign({}, texts, { Comment: JSON.parse(texts.Comment) });
+    }catch(e){ /* still nothing */ }
+  }
+
+  if(!outer || !outer.Comment || typeof outer.Comment === 'string') return null;
+  return outer;
+}
+
+// erase one canvas: wipe the hidden alpha data + every text chunk (the canvas re-encode drops them), then — if the
+// image had NAI metadata — write the notice back: once into the stealth alpha layer, once as plain tEXt chunks.
+async function buildCleanPng(canvas, cx, outerOrNull){
+  const w = canvas.width, h = canvas.height;
+  const imageData = cx.getImageData(0, 0, w, h);
+  const d = imageData.data;
+  for(let i=3; i<d.length; i+=4) d[i] = 255;
+
+  const notice = outerOrNull ? buildNotice(outerOrNull) : null;
+  let stealthOk = true;
+  if(notice){
+    try{ await embedStealth(imageData, w, h, notice.outer); }
+    catch(e){ stealthOk = false; }
+  }
+  cx.putImageData(imageData, 0, 0);
+
+  const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+  let bytes = new Uint8Array(await blob.arrayBuffer());
+  if(notice) bytes = insertTextChunks(bytes, notice.textChunks);
+  return {bytes, hadMeta: !!notice, stealthOk};
+}
+
+// batch version: decode a png from raw bytes, and only clean it if it really carries NAI metadata
+async function cleanPngFromBuffer(buf){
+  const url = URL.createObjectURL(new Blob([buf], {type:'image/png'}));
+  const c = document.createElement('canvas');
+  try{
+    const img = await loadImageEl(url);
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const cx = c.getContext('2d', {willReadFrequently:true});
+    cx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+    const outer = await readOuter(buf, cx.getImageData(0, 0, c.width, c.height), c.width, c.height);
+    if(!outer) return {hadMeta:false};
+    return await buildCleanPng(c, cx, outer);
+  } finally {
+    c.width = 0; c.height = 0;
+  }
+}
+
+// ---------- zip: tiny reader (stored + deflate via the browser's own DecompressionStream) and writer (stored) ----------
+async function readZip(arrayBuffer){
+  const u8 = new Uint8Array(arrayBuffer);
+  const dv = new DataView(arrayBuffer);
+  let eocd = -1;
+  for(let i = u8.length - 22; i >= Math.max(0, u8.length - 22 - 65535); i--){
+    if(dv.getUint32(i, true) === 0x06054b50){ eocd = i; break; }
+  }
+  if(eocd < 0) throw new Error('not a valid zip file');
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const dec = new TextDecoder('utf-8');
+  const out = [];
+  for(let n=0; n<count; n++){
+    if(dv.getUint32(p, true) !== 0x02014b50) break;
+    const flags = dv.getUint16(p + 8, true);
+    const method = dv.getUint16(p + 10, true);
+    const csize = dv.getUint32(p + 20, true);
+    const nlen = dv.getUint16(p + 28, true), elen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true);
+    const lho = dv.getUint32(p + 42, true);
+    const name = dec.decode(u8.subarray(p + 46, p + 46 + nlen));
+    p += 46 + nlen + elen + clen;
+    if(name.endsWith('/') || name.startsWith('__MACOSX/') || !/\.png$/i.test(name)) continue;
+    if(flags & 1) throw new Error('password-protected zips are not supported');
+    const lnlen = dv.getUint16(lho + 26, true), lelen = dv.getUint16(lho + 28, true);
+    const start = lho + 30 + lnlen + lelen;
+    const raw = u8.subarray(start, start + csize);
+    out.push({name, read: async ()=>{
+      if(method === 0) return raw.slice().buffer;
+      if(method === 8){
+        if(!window.DecompressionStream) throw new Error('this browser can\'t unpack compressed zips');
+        const ds = new DecompressionStream('deflate-raw');
+        return await new Response(new Blob([raw]).stream().pipeThrough(ds)).arrayBuffer();
+      }
+      throw new Error('unsupported zip compression (method ' + method + ')');
+    }});
+  }
+  return out;
+}
+
+function makeZip(entries){ // entries: [{name, data:Uint8Array}] — stored, no compression (pngs are compressed already)
+  const enc = new TextEncoder();
+  const parts = [], central = [];
+  let offset = 0;
+  const dt = new Date();
+  const dosTime = (dt.getHours() << 11) | (dt.getMinutes() << 5) | (dt.getSeconds() >> 1);
+  const dosDate = ((dt.getFullYear() - 1980) << 9) | ((dt.getMonth() + 1) << 5) | dt.getDate();
+  entries.forEach(e=>{
+    const name = enc.encode(e.name);
+    const crc = crc32(e.data);
+
+    const lh = new Uint8Array(30 + name.length);
+    const l = new DataView(lh.buffer);
+    l.setUint32(0, 0x04034b50, true);
+    l.setUint16(4, 20, true);
+    l.setUint16(6, 0x0800, true);      // utf-8 file names
+    l.setUint16(8, 0, true);           // stored
+    l.setUint16(10, dosTime, true);
+    l.setUint16(12, dosDate, true);
+    l.setUint32(14, crc, true);
+    l.setUint32(18, e.data.length, true);
+    l.setUint32(22, e.data.length, true);
+    l.setUint16(26, name.length, true);
+    lh.set(name, 30);
+    parts.push(lh, e.data);
+
+    const ch = new Uint8Array(46 + name.length);
+    const c = new DataView(ch.buffer);
+    c.setUint32(0, 0x02014b50, true);
+    c.setUint16(4, 20, true);
+    c.setUint16(6, 20, true);
+    c.setUint16(8, 0x0800, true);
+    c.setUint16(10, 0, true);
+    c.setUint16(12, dosTime, true);
+    c.setUint16(14, dosDate, true);
+    c.setUint32(16, crc, true);
+    c.setUint32(20, e.data.length, true);
+    c.setUint32(24, e.data.length, true);
+    c.setUint16(28, name.length, true);
+    c.setUint32(42, offset, true);
+    ch.set(name, 46);
+    central.push(ch);
+
+    offset += lh.length + e.data.length;
+  });
+  const cdSize = central.reduce((n, c)=> n + c.length, 0);
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, entries.length, true);
+  ev.setUint16(10, entries.length, true);
+  ev.setUint32(12, cdSize, true);
+  ev.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, eocd], {type:'application/zip'});
+}
+
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=> URL.revokeObjectURL(url), 5000);
+}
+
+// ---------- batch: zip / folder / several pngs in -> one cleaned zip out ----------
+async function collectPngs(list){
+  const items = [];
+  for(const {file, path} of list){
+    if(/\.zip$/i.test(file.name)){
+      const entries = await readZip(await file.arrayBuffer());
+      entries.forEach(e => items.push({name: e.name, read: e.read}));
+    } else if(/\.png$/i.test(file.name)){
+      items.push({name: path || file.name, read: ()=> file.arrayBuffer()});
+    }
+  }
+  return items.filter(it => !/(^|\/)\._/.test(it.name)); // mac resource-fork junk
+}
+
+async function handleBatch(list){
+  batchBusy = true;
+  [eraseBtn, batchFilesBtn, batchFolderBtn].forEach(b => b.disabled = true);
+  notesMsg.style.display = 'none';
+  try{
+    setStatus('Collecting files…');
+    let items;
+    try{ items = await collectPngs(list); }
+    catch(e){ setStatus('Couldn\'t read that: ' + e.message, 'error'); return; }
+    if(!items.length){ setStatus('No PNG files found in there.', 'error'); return; }
+
+    const zipEntries = [], skipped = [], failed = [];
+    const used = new Set();
+    for(let i=0; i<items.length; i++){
+      const it = items[i];
+      setStatus(`Working… ${i+1}/${items.length}`);
+      try{
+        const res = await cleanPngFromBuffer(await it.read());
+        if(!res.hadMeta){ skipped.push(it.name); continue; }
+        const base = it.name.replace(/\.png$/i, '');
+        let name = base + '_clean.png', n = 2;
+        while(used.has(name)) name = base + '_clean_' + (n++) + '.png';
+        used.add(name);
+        zipEntries.push({name, data: res.bytes});
+      }catch(e){ failed.push(it.name); }
+    }
+
+    if(!zipEntries.length){
+      setStatus('None of those PNGs had NovelAI metadata, so there was nothing to clean.', 'error');
+    } else {
+      downloadBlob(makeZip(zipEntries), 'novelai_clean.zip');
+      setStatus(`Done. ${zipEntries.length} cleaned, zip is ready to be downloaded.`, 'ok');
+    }
+
+    const notes = [];
+    const nameList = arr => arr.slice(0, 5).join(', ') + (arr.length > 5 ? ` and ${arr.length - 5} more` : '');
+    if(skipped.length) notes.push(`${skipped.length} left out (no NovelAI metadata found): ${nameList(skipped)}.`);
+    if(failed.length) notes.push(`${failed.length} couldn't be processed: ${nameList(failed)}.`);
+    if(notes.length){ notesMsg.textContent = notes.join(' '); notesMsg.style.display = ''; }
+  } finally {
+    batchBusy = false;
+    [eraseBtn, batchFilesBtn, batchFolderBtn].forEach(b => b.disabled = false);
+  }
 }
 
 function extractFields(comment){
@@ -563,7 +864,7 @@ function renderFields(fields, comment, outer){
 }
 
 function clearFields(){
-  lastParsed = null;
+  lastOuter = null;
   basePromptEl.value = '';
   negPromptEl.value = '';
   basePromptGroup.style.display = '';
@@ -575,7 +876,7 @@ function clearFields(){
 }
 
 function clearImage(){
-  dropZone.innerHTML = '<div class="drop-hint" id="dropHint"><span class="big">&#8613;</span>Click or drop a NovelAI PNG here</div>';
+  dropZone.innerHTML = DROP_HINT_HTML;
   imageActions.style.display = 'none';
   clearFields();
   setStatus('You upload a PNG, I read the metadata — everything runs in your browser, never sent to any server.', '');
@@ -610,22 +911,10 @@ async function handleFile(file){
 
   imageActions.style.display = 'flex';
 
-  let outer = null;
-  try{
-    const imageData = ctx.getImageData(0, 0, workCanvas.width, workCanvas.height);
-    outer = await extractStealthPng(imageData, workCanvas.width, workCanvas.height);
-  }catch(e){ /* fall through to the plain-chunk fallback below */ }
+  const imageData = ctx.getImageData(0, 0, workCanvas.width, workCanvas.height);
+  const outer = await readOuter(arrayBuffer, imageData, workCanvas.width, workCanvas.height);
 
   if(!outer){
-    try{
-      const texts = parsePngTextChunks(arrayBuffer);
-      if(texts.Comment){
-        outer = { Comment: JSON.parse(texts.Comment), Source: texts.Source, Title: texts.Title };
-      }
-    }catch(e){ /* still nothing */ }
-  }
-
-  if(!outer || !outer.Comment || typeof outer.Comment === 'string'){
     setStatus('This doesn\'t seem like a NovelAI png. Only NAI PNGs are supported.', 'error');
     return;
   }
@@ -633,44 +922,20 @@ async function handleFile(file){
   const comment = outer.Comment;
   const fields = extractFields(comment);
   renderFields(fields, comment, outer);
-  lastParsed = {comment, fields};
+  lastOuter = outer;
   setStatus('I found the metadata.', 'ok');
 }
 
-// erase = wipe the hidden alpha data + all text chunks (canvas re-encode drops them), then write the notice back:
-// once into the stealth alpha layer, once as plain tEXt chunks. no metadata found -> plain wipe like before.
+// single image: erase + notice, downloads the png. no NAI metadata found -> plain wipe like before.
 eraseBtn.addEventListener('click', async ()=>{
-  if(!workCanvas.width) return;
+  if(!workCanvas.width || batchBusy) return;
   eraseBtn.disabled = true;
   try{
-    const w = workCanvas.width, h = workCanvas.height;
-    const imageData = ctx.getImageData(0, 0, w, h);
-    const d = imageData.data;
-    for(let i=3; i<d.length; i+=4) d[i] = 255;
+    const res = await buildCleanPng(workCanvas, ctx, lastOuter);
+    downloadBlob(new Blob([res.bytes], {type:'image/png'}), currentFileBase + '_clean.png');
 
-    const notice = lastParsed ? buildNotice(lastParsed.comment, lastParsed.fields) : null;
-    let stealthOk = true;
-    if(notice){
-      try{ await embedStealth(imageData, w, h, notice.outer); }
-      catch(e){ stealthOk = false; }
-    }
-    ctx.putImageData(imageData, 0, 0);
-
-    const blob = await new Promise(res => workCanvas.toBlob(res, 'image/png'));
-    let bytes = new Uint8Array(await blob.arrayBuffer());
-    if(notice) bytes = insertTextChunks(bytes, notice.textChunks);
-
-    const url = URL.createObjectURL(new Blob([bytes], {type:'image/png'}));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = currentFileBase + '_clean.png';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=> URL.revokeObjectURL(url), 5000);
-
-    if(!notice) setStatus('Erased and ready to be downloaded.', 'ok');
-    else if(stealthOk) setStatus('Erased. Every prompt line now holds a notice instead. Ready to be downloaded.', 'ok');
+    if(!res.hadMeta) setStatus('Erased and ready to be downloaded.', 'ok');
+    else if(res.stealthOk) setStatus('Erased. Every prompt line now holds a notice instead. Ready to be downloaded.', 'ok');
     else setStatus('Erased, with a text-only notice (this browser couldn\'t write the hidden-pixel one). Ready to be downloaded.', 'ok');
   }catch(e){
     setStatus('Something went wrong while erasing: ' + e.message, 'error');
