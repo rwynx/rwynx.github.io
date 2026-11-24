@@ -15,7 +15,7 @@
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://rwyn.app/mods.html">
-<meta property="og:site_name" content="Rwyn's Blog">
+<meta property="og:site_name" content="Rwyn's Stuff">
 <meta property="og:title" content="Game Mods — Titanfall 2 & Cyberpunk Overhauls by Rwyn">
 <meta property="og:description" content="Game modifications developed by Rwyn for Titanfall 2, Cyberpunk 2077, and Fallout 4. Featuring the Night City visual overhaul for Titanfall 2 Angel City map.">
 <meta property="og:image" content="https://rwyn.app/assets/img/mods/rwyn_nightcity/fullres/full_res1.png">
@@ -114,6 +114,7 @@
   .big-card .meta{ position:absolute; left:0; right:0; bottom:0; z-index:2; padding:20px; }
   .big-card .tag{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--blue); letter-spacing:.08em; text-transform:uppercase; display:block; margin-bottom:6px; }
   .big-card .name{ font-size:22px; font-weight:600; margin-bottom:12px; }
+  .big-card .desc{ font-size:12.5px; color:var(--text-dim); line-height:1.5; margin:-4px 0 12px; }
   .big-card .links{ display:flex; gap:10px; flex-wrap:wrap; }
   @keyframes pillBounce{ 0%{transform:scale(1);} 45%{transform:scale(1.12);} 75%{transform:scale(.97);} 100%{transform:scale(1);} }
   .big-card .links a{
@@ -151,7 +152,25 @@
 
 <div class="mods-wrap">
   <div class="go-back"><a href="index.html">← Go back</a></div>
-  <div class="mods-grid" id="modsGrid"></div>
+  <div class="mods-grid" id="modsGrid">
+    <!-- wiki card is plain static html on purpose: its links are in the page source, no JS needed to see them. the mod cards below get inserted before it, so it stays last -->
+    <div class="big-card wiki-card clickable" id="wikiCard">
+      <div class="slide on" style="background:linear-gradient(155deg, rgba(155,109,255,.38), rgba(79,195,255,.22));"></div>
+      <div class="shade"></div>
+      <div class="badge">guide</div>
+      <div class="meta">
+        <span class="tag">nikke · modding</span>
+        <div class="name">NIKKE Modding Wiki</div>
+        <div class="desc">Guides for installing mods, making your own and fixing what breaks.</div>
+        <div class="links">
+          <a href="https://nikkemodding.rwyn.app/" target="_blank" rel="noopener">Wiki Home ↗</a>
+          <a href="https://nikkemodding.rwyn.app/installing-mods/" target="_blank" rel="noopener">Installing Mods ↗</a>
+          <a href="https://nikkemodding.rwyn.app/mod-making/" target="_blank" rel="noopener">Mod Making ↗</a>
+          <a href="https://nikkemodding.rwyn.app/diagnostics/" target="_blank" rel="noopener">Diagnostics ↗</a>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="assets/js/site.js"></script>
@@ -175,6 +194,7 @@ const mods = [
 ];
 
 const grid = document.getElementById('modsGrid');
+const wikiCard = document.getElementById('wikiCard');
 
 mods.forEach((mod, i)=>{
   const card = document.createElement('div');
@@ -190,7 +210,7 @@ mods.forEach((mod, i)=>{
         <div class="name">${mod.name}</div>
       </div>
     `;
-    grid.appendChild(card);
+    grid.insertBefore(card, wikiCard);
     return;
   }
 
@@ -213,7 +233,7 @@ mods.forEach((mod, i)=>{
       <div class="links">${linksHtml}</div>
     </div>
   `;
-  grid.appendChild(card);
+  grid.insertBefore(card, wikiCard);
 
   // clicking the card navigates to its detail page, unless the click landed on one of the store links
   if(mod.pageUrl){
@@ -239,6 +259,14 @@ mods.forEach((mod, i)=>{
     img.src = src;
   });
 });
+
+// whole wiki card is clickable like the mod cards, except when the click landed on one of its own links
+if(wikiCard){
+  wikiCard.addEventListener('click', e=>{
+    if(e.target.closest('.links a')) return;
+    window.open('https://nikkemodding.rwyn.app/', '_blank', 'noopener');
+  });
+}
 </script>
 </body>
 </html>
